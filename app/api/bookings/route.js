@@ -1,10 +1,24 @@
 import { badRequest, isEmail, ok } from "@/lib/api";
 import { forbidden, getLocalState, isAdminRequest, newId, saveLocalState } from "@/lib/cms";
+import {
+  createBookingInPostgres,
+  listBookingsFromPostgres,
+  updateBookingInPostgres
+} from "@/lib/cms-db";
 import { getSupabaseServer } from "@/lib/supabase";
 
 export async function GET(request) {
   if (!isAdminRequest(request)) {
     return forbidden();
+  }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      return ok({ bookings: await listBookingsFromPostgres(), source: "postgres" });
+    } catch (error) {
+      console.error("Unable to read PostgreSQL bookings:", error);
+      return Response.json({ error: "Unable to load bookings." }, { status: 500 });
+    }
   }
 
   const supabase = getSupabaseServer();
@@ -46,6 +60,16 @@ export async function POST(request) {
     status: "pending"
   };
 
+  if (process.env.DATABASE_URL) {
+    try {
+      const savedBooking = await createBookingInPostgres(booking);
+      return ok({ message: "Booking request sent. We will confirm soon.", booking: savedBooking }, 201);
+    } catch (error) {
+      console.error("Unable to create PostgreSQL booking:", error);
+      return Response.json({ error: "Unable to send the booking request." }, { status: 500 });
+    }
+  }
+
   const supabase = getSupabaseServer();
 
   if (!supabase) {
@@ -77,6 +101,17 @@ export async function PATCH(request) {
 
   if (!body.id || !body.status) {
     return badRequest("Booking id and status are required.");
+  }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const booking = await updateBookingInPostgres(body.id, body.status);
+      if (!booking) return Response.json({ error: "Booking not found." }, { status: 404 });
+      return ok({ message: "Booking updated.", booking, source: "postgres" });
+    } catch (error) {
+      console.error("Unable to update PostgreSQL booking:", error);
+      return Response.json({ error: "Unable to update booking." }, { status: 500 });
+    }
   }
 
   const supabase = getSupabaseServer();

@@ -10,14 +10,19 @@ export default function BookTableClient() {
   const [customer, setCustomer] = useState({ customer_name: "", phone: "", email: "" });
 
   useEffect(() => {
-    const session = JSON.parse(localStorage.getItem("emrakelSession") || "null");
-    if (session?.role === "customer") {
-      setCustomer({
-        customer_name: session.name || "",
-        phone: session.phone || "",
-        email: session.email || ""
-      });
-    }
+    fetch("/api/auth/session")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        const session = data?.user;
+        if (session?.role === "customer") {
+          setCustomer({
+            customer_name: session.name || "",
+            phone: session.phone || "",
+            email: session.email || ""
+          });
+        }
+      })
+      .catch(() => undefined);
     fetch("/api/settings")
       .then((response) => response.json())
       .then((data) => setPageText({ ...bookingPageSettings, ...(data.bookingPage || {}) }))

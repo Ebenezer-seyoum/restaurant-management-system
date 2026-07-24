@@ -35,11 +35,14 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
+const hostname = new URL(databaseUrl).hostname.toLowerCase();
+const useSsl =
+  process.env.DATABASE_SSL === "true" ||
+  (process.env.DATABASE_SSL !== "false" &&
+    (hostname.includes("supabase") || hostname.includes("neon.tech")));
 const client = new Client({
   connectionString: databaseUrl,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: useSsl ? { rejectUnauthorized: false } : false
 });
 
 try {
@@ -60,7 +63,12 @@ try {
         'table_bookings',
         'orders',
         'order_items',
-        'contact_messages'
+        'contact_messages',
+        'restaurant_tables',
+        'income_transactions',
+        'expense_categories',
+        'expenses',
+        'audit_logs'
       )
     order by table_name;
   `);

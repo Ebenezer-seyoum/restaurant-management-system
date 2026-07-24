@@ -1,4 +1,6 @@
-import { badRequest, isEmail, ok } from "@/lib/api";
+import { badRequest, isEmail } from "@/lib/api";
+import { createSessionToken, sessionCookie } from "@/lib/auth";
+import { createUserInPostgres } from "@/lib/cms-db";
 import { hashPassword } from "@/lib/password";
 import { getSupabaseServer } from "@/lib/supabase";
 
@@ -17,6 +19,22 @@ export async function POST(request) {
 
   if (password.length < 8) {
     return badRequest("Password must be at least 8 characters.");
+  }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const user = await createUserInPostgres({ ...body, email, password });
+      return Response.json(
+        { message: "Account created successfully.", user },
+        { status: 201, headers: { "Set-Cookie": sessionCookie(createSessionToken(user)) } }
+      );
+    } catch (error) {
+      const duplicate = error.code === "23505";
+      return Response.json(
+        { error: duplicate ? "An account with this email already exists." : "Unable to create the account." },
+        { status: duplicate ? 409 : 500 }
+      );
+    }
   }
 
   const supabase = getSupabaseServer();
@@ -42,5 +60,8 @@ export async function POST(request) {
     return Response.json({ error: message }, { status: error.code === "23505" ? 409 : 500 });
   }
 
-  return ok({ message: "Account created successfully.", user: data }, 201);
+  return Response.json(
+    { message: "Account created successfully.", user: data },
+    { status: 201, headers: { "Set-Cookie": sessionCookie(createSessionToken(data)) } }
+  );
 }

@@ -1,89 +1,128 @@
-import { badRequest, ok } from "@/lib/api";
+import { badRequest } from "@/lib/api";
+import { createSessionToken, sessionCookie } from "@/lib/auth";
+import { getDbPool } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
 import { getSupabaseServer } from "@/lib/supabase";
 
-const users = [
-  {
-    role: "admin",
-    email: process.env.ADMIN_EMAIL || "admin@emrakel.com",
-    password: process.env.ADMIN_PASSWORD || "kena@12345",
-    name: "EMRAKEL Admin"
-  },
-  {
-    role: "admin",
-    email: "eyob@gmail.com",
-    password: "12345678",
-    name: "Eyob Admin"
-  },
-  {
-    role: "customer",
-    email: process.env.CUSTOMER_EMAIL || "customer@emrakel.house",
-    password: process.env.CUSTOMER_PASSWORD || "customer123",
-    name: "Customer"
+export const runtime = "nodejs";
+const attemptStoreKey = "__emrakelLoginAttempts";
+const attemptWindowMs = 15 * 60 * 1000;
+const maxAttempts = 10;
+
+function attemptStore() {
+  globalThis[attemptStoreKey] ||= new Map();
+  return globalThis[attemptStoreKey];
+}
+
+function clientKey(request, email) {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return `${forwarded || "unknown"}:${email}`;
+}
+
+function isRateLimited(key) {
+  const current = attemptStore().get(key);
+  if (!current || current.resetAt <= Date.now()) {
+    attemptStore().delete(key);
+    return false;
   }
-];
+  return current.count >= maxAttempts;
+}
+
+function recordFailure(key) {
+  const store = attemptStore();
+  const current = store.get(key);
+  if (!current || current.resetAt <= Date.now()) {
+    store.set(key, { count: 1, resetAt: Date.now() + attemptWindowMs });
+    return;
+  }
+  current.count += 1;
+}
+
+function loginResponse(user) {
+  const publicUser = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    phone: user.phone,
+    role: user.role
+  };
+
+  return Response.json(
+    { message: "Login successful.", user: publicUser },
+    { headers: { "Set-Cookie": sessionCookie(createSessionToken(publicUser)) } }
+  );
+}
 
 export async function POST(request) {
-  const body = await request.json();
-
-  if (!body.email || !body.password) {
-    return badRequest("Email and password are required.");
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return badRequest("A valid email and password are required.");
   }
 
-  const supabase = getSupabaseServer();
-  const email = String(body.email).toLowerCase();
+  const email = String(body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
 
-  if (supabase) {
-    let authResult;
+  if (!email || !password) {
+    return badRequest("Email and password are required.");
+  }
+  const key = clientKey(request, email);
+  if (isRateLimited(key)) {
+    return Response.json(
+      { error: "Too many login attempts. Try again in 15 minutes." },
+      { status: 429 }
+    );
+  }
 
+  const pool = getDbPool();
+  if (pool) {
     try {
-      authResult = await supabase
-        .from("app_users")
-        .select("id,email,password_hash,name,phone,role")
-        .eq("email", email)
-        .single();
-    } catch (error) {
-      authResult = { error };
-    }
+      const { rows } = await pool.query(
+        `select id, email, password_hash, name, phone, role
+         from public.app_users
+         where lower(email) = $1
+         limit 1`,
+        [email]
+      );
+      const user = rows[0];
 
-    const { data: user, error } = authResult;
-
-    if (error && error.code !== "PGRST116" && !String(error.message || error).includes("fetch failed")) {
-      return Response.json({ error: error.message }, { status: 500 });
-    }
-
-    if (user) {
-      if (!verifyPassword(body.password, user.password_hash)) {
+      if (!user || !verifyPassword(password, user.password_hash)) {
+        recordFailure(key);
         return Response.json({ error: "Invalid login details." }, { status: 401 });
       }
 
-      return ok({
-        message: "Login successful.",
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          phone: user.phone,
-          role: user.role
-        }
-      });
+      attemptStore().delete(key);
+      return loginResponse(user);
+    } catch (error) {
+      console.error("PostgreSQL login failed:", error);
+      return Response.json({ error: "Login service is temporarily unavailable." }, { status: 503 });
     }
   }
 
-  const user = users.find(
-    (item) => item.email.toLowerCase() === email && item.password === body.password
+  const supabase = getSupabaseServer();
+  if (supabase) {
+    const { data: user, error } = await supabase
+      .from("app_users")
+      .select("id,email,password_hash,name,phone,role")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (error) {
+      return Response.json({ error: "Login service is temporarily unavailable." }, { status: 503 });
+    }
+
+    if (!user || !verifyPassword(password, user.password_hash)) {
+      recordFailure(key);
+      return Response.json({ error: "Invalid login details." }, { status: 401 });
+    }
+
+    attemptStore().delete(key);
+    return loginResponse(user);
+  }
+
+  return Response.json(
+    { error: "Database login is not configured. Add DATABASE_URL and seed the admin account." },
+    { status: 503 }
   );
-
-  if (!user) {
-    return Response.json({ error: "Invalid login details." }, { status: 401 });
-  }
-
-  return ok({
-    message: "Login successful.",
-    user: {
-      email: user.email,
-      name: user.name,
-      role: user.role
-    }
-  });
 }

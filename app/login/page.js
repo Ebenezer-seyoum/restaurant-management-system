@@ -39,7 +39,6 @@ export default function LoginPage() {
       return;
     }
 
-    localStorage.setItem("emrakelSession", JSON.stringify(data.user));
     window.location.href = data.user.role === "admin" ? "/admin" : "/customer";
   }
 

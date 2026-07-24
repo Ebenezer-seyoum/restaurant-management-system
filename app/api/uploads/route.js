@@ -1,4 +1,5 @@
 import path from "path";
+import { mkdir, writeFile } from "fs/promises";
 import { forbidden, isAdminRequest } from "@/lib/cms";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
@@ -15,6 +16,7 @@ const extensionByType = {
   "image/gif": ".gif"
 };
 const storageBucket = process.env.SUPABASE_STORAGE_BUCKET || "emrakel-images";
+const maxUploadBytes = 8 * 1024 * 1024;
 
 async function ensureStorageBucket(supabase) {
   const { data: buckets, error: listError } = await supabase.storage.listBuckets();
@@ -65,22 +67,46 @@ export async function POST(request) {
       return Response.json({ error: "Upload a JPG, PNG, WEBP, or GIF image." }, { status: 400 });
     }
 
-    const supabase = getSupabaseAdmin();
-
-    if (!supabase) {
-      return Response.json({ error: "Supabase Storage is not configured." }, { status: 500 });
-    }
-
     const originalExtension = path.extname(file.name || "").toLowerCase();
     const extension = originalExtension === ".jfif" ? ".jpg" : extensionByType[file.type] || originalExtension || ".jpg";
     const safeName = `admin-${Date.now()}-${Math.random().toString(16).slice(2, 8)}${extension}`;
-    const storagePath = `house/${safeName}`;
     const bytes = Buffer.from(await file.arrayBuffer());
 
     if (!bytes.length) {
       return Response.json({ error: "The selected image is empty." }, { status: 400 });
     }
+    if (bytes.length > maxUploadBytes) {
+      return Response.json({ error: "Image must be 8 MB or smaller." }, { status: 400 });
+    }
 
+    const supabase = getSupabaseAdmin();
+    const provider =
+      process.env.IMAGE_STORAGE_PROVIDER ||
+      (supabase ? "supabase" : "local");
+
+    if (provider === "local") {
+      const uploadDirectory = path.resolve(
+        process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads", "admin")
+      );
+      await mkdir(uploadDirectory, { recursive: true });
+      await writeFile(path.join(uploadDirectory, safeName), bytes);
+      const publicBase = String(process.env.UPLOAD_PUBLIC_URL || "/uploads/admin").replace(/\/$/, "");
+
+      return Response.json({
+        message: "Image uploaded.",
+        url: `${publicBase}/${safeName}`,
+        provider: "local"
+      });
+    }
+
+    if (!supabase) {
+      return Response.json(
+        { error: "Supabase Storage is not configured. Use IMAGE_STORAGE_PROVIDER=local for VPS storage." },
+        { status: 500 }
+      );
+    }
+
+    const storagePath = `house/${safeName}`;
     await ensureStorageBucket(supabase);
 
     const { error: uploadError } = await supabase.storage.from(storageBucket).upload(storagePath, bytes, {

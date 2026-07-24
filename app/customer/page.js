@@ -12,7 +12,10 @@ export default function CustomerDashboardPage() {
   const [pageText, setPageText] = useState(customerPageSettings);
 
   useEffect(() => {
-    setSession(JSON.parse(localStorage.getItem("emrakelSession") || "null"));
+    fetch("/api/auth/session")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => setSession(data?.user || null))
+      .catch(() => setSession(null));
     fetch("/api/settings")
       .then((response) => response.json())
       .then((data) => {
@@ -23,8 +26,8 @@ export default function CustomerDashboardPage() {
       .catch(() => undefined);
   }, []);
 
-  function logout() {
-    localStorage.removeItem("emrakelSession");
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/login";
   }
 

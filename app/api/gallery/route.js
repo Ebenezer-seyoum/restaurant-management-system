@@ -1,4 +1,5 @@
 import { forbidden, getLocalState, getPublicContent, isAdminRequest, saveLocalState } from "@/lib/cms";
+import { saveGalleryToPostgres } from "@/lib/cms-db";
 import { getSupabaseServer } from "@/lib/supabase";
 
 export async function GET() {
@@ -13,6 +14,17 @@ export async function PUT(request) {
 
   const body = await request.json();
   const gallery = Array.isArray(body.gallery) ? body.gallery : [];
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const saved = await saveGalleryToPostgres(gallery);
+      return Response.json({ message: "Gallery saved.", gallery: saved, source: "postgres" });
+    } catch (error) {
+      console.error("Unable to save PostgreSQL gallery:", error);
+      return Response.json({ error: "Unable to save gallery images." }, { status: 500 });
+    }
+  }
+
   const supabase = getSupabaseServer();
 
   async function saveLocalGallery(message = "Gallery saved locally.") {

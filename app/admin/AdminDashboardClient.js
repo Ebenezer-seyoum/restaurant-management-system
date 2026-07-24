@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { brandImage } from "@/lib/data";
+import FinancePanel from "./FinancePanel";
 
 const emptyStatus = { type: "", message: "" };
 const navGroups = [
   { label: "Website", items: [["home", "Home"], ["menu", "Menu"], ["gallery", "Gallery"], ["about", "About Us"], ["contact", "Contact"], ["footer", "Footer"], ["seo", "Google SEO"]] },
-  { label: "Operations", items: [["orders", "Orders"], ["finance", "Finance"]] },
+  { label: "Operations", items: [["orders", "Orders"], ["finance", "Finance"], ["reports", "Reports"]] },
   { label: "Customers", items: [["bookings", "Book Tables"], ["customers", "Customers"], ["feedback", "Feedback"]] },
   { label: "Extras", items: [["jazz", "Jazz"]] }
 ];
@@ -14,8 +15,7 @@ const navItems = navGroups.flatMap((group) => group.items);
 
 function adminHeaders() {
   return {
-    "Content-Type": "application/json",
-    "x-emrakel-role": "admin"
+    "Content-Type": "application/json"
   };
 }
 
@@ -50,72 +50,14 @@ function ImageControl({ label, value, onChange, onUpload }) {
   );
 }
 
-function FinanceAdminTab() {
-  const [data, setData] = useState({ income: [], expenses: [], totals: { income: 0, expenses: 0, profit: 0 } });
-  const [filter, setFilter] = useState("all");
-  const [form, setForm] = useState({ category: "Maintenance", description: "", amount: "", payment_method: "cash" });
-
-  async function loadFinance() {
-    const response = await fetch("/api/hono/finance");
-    if (response.ok) setData(await response.json());
-  }
-
-  useEffect(() => {
-    loadFinance();
-  }, []);
-
-  async function addExpense(event) {
-    event.preventDefault();
-    const response = await fetch("/api/hono/expenses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-emrakel-role": "admin" },
-      body: JSON.stringify(form)
-    });
-    if (response.ok) {
-      setForm({ ...form, description: "", amount: "" });
-      loadFinance();
-    }
-  }
-
-  const rows = [
-    ...(filter === "expenses" ? [] : data.income.map((item) => ({ ...item, kind: "Income", date: item.transaction_date }))),
-    ...(filter === "income" ? [] : data.expenses.map((item) => ({ ...item, kind: "Expense", date: item.expense_date })))
-  ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
-
-  return (
-    <div className="adminFinanceWorkspace">
-      <div className="metricGrid">
-        <div className="adminMetricCard"><span>Total income</span><strong>{Number(data.totals.income || 0).toLocaleString()} ETB</strong></div>
-        <div className="adminMetricCard"><span>Total expenses</span><strong>{Number(data.totals.expenses || 0).toLocaleString()} ETB</strong></div>
-        <div className="adminMetricCard"><span>Net profit</span><strong>{Number(data.totals.profit || 0).toLocaleString()} ETB</strong></div>
-      </div>
-      <div className="financeGrid">
-        <form className="panel expenseForm" onSubmit={addExpense}>
-          <p className="eyebrow">Owner control</p>
-          <h2>Add manual expense</h2>
-          <label>Category<select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>{["Ingredients", "Maintenance", "Salaries", "Rent", "Utilities", "Transport", "Marketing", "Other"].map((item) => <option key={item}>{item}</option>)}</select></label>
-          <label>Description<input required value={form.description} placeholder="TV maintenance" onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
-          <label>Amount (ETB)<input required min="1" type="number" value={form.amount} placeholder="500" onChange={(event) => setForm({ ...form, amount: event.target.value })} /></label>
-          <label>Payment method<select value={form.payment_method} onChange={(event) => setForm({ ...form, payment_method: event.target.value })}><option value="cash">Cash</option><option value="card">Card</option><option value="telebirr">Telebirr</option><option value="other">Other</option></select></label>
-          <button className="button buttonGold fullButton">Save expense</button>
-        </form>
-        <div className="panel financeList">
-          <div className="adminPanelHead"><div><p className="eyebrow">Finance records</p><h2>Income and expenses</h2></div><select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">All</option><option value="income">Income only</option><option value="expenses">Expenses only</option></select></div>
-          {rows.length ? rows.map((row) => <div className="transactionRow" key={row.id}><div><strong>{row.description}</strong><span>{row.category} · {row.date}</span></div><b className={row.kind === "Expense" ? "expenseAmount" : "incomeAmount"}>{row.kind === "Expense" ? "-" : "+"}{Number(row.amount || 0).toLocaleString()} ETB</b></div>) : <p className="mutedText">No finance transactions yet.</p>}
-        </div>
-      </div>
-    </div>
-  );
-}
 function normalizeAdminUrl(value) {
   return String(value || "")
     .trim()
-    .replace(/^https?:\/\/https?:\/\//i, "https://")
-    .replace(/^https?:\/\/http/i, "https://");
+    .replace(/^https?:\/\/https?:\/\//i, "https://");
 }
 
 function displayUrl(siteUrl, path = "/") {
-  const cleanSite = normalizeAdminUrl(siteUrl || "https://emrakelhouse.com").replace(/\/$/, "");
+  const cleanSite = normalizeAdminUrl(siteUrl || "https://httpemrakelhouse.com").replace(/\/$/, "");
   const cleanPath = String(path || "/");
   if (/^https?:\/\//i.test(cleanPath)) {
     return cleanPath;
@@ -137,8 +79,9 @@ function SeoPreview({ siteUrl, title, description, path = "/" }) {
 }
 
 export default function AdminDashboardClient() {
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState(undefined);
   const [activeTab, setActiveTab] = useState("home");
+  const [openNavGroup, setOpenNavGroup] = useState("Website");
   const [status, setStatus] = useState(emptyStatus);
   const [brand, setBrand] = useState(null);
   const [home, setHome] = useState(null);
@@ -197,7 +140,7 @@ export default function AdminDashboardClient() {
 
     return query ? haystack.includes(query) : true;
   });
-  const seoSiteUrl = normalizeAdminUrl(seo?.siteUrl || "https://emrakelhouse.com") || "https://emrakelhouse.com";
+  const seoSiteUrl = normalizeAdminUrl(seo?.siteUrl || "https://httpemrakelhouse.com") || "https://httpemrakelhouse.com";
   const seoMenuUrl = seo?.menuUrl || displayUrl(seoSiteUrl, "/menu");
   const seoSearchConsoleUrls =
     seo?.searchConsoleUrls ||
@@ -205,15 +148,24 @@ export default function AdminDashboardClient() {
   const enabledSeoLinks = (seo?.sitelinks || []).filter((link) => link.enabled !== false && link.noindex !== true);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("emrakelSession") || "null");
-    setSession(saved);
-
-    if (!saved || saved.role !== "admin") {
-      setStatus({ type: "error", message: "Admin login is required. Use the login page first." });
-      return;
+    async function initializeDashboard() {
+      try {
+        const response = await fetch("/api/auth/session", { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok || data.user?.role !== "admin") {
+          setSession(null);
+          setStatus({ type: "error", message: "Admin login is required. Use the login page first." });
+          return;
+        }
+        setSession(data.user);
+        await loadDashboard();
+      } catch {
+        setSession(null);
+        setStatus({ type: "error", message: "Unable to verify the admin session." });
+      }
     }
 
-    loadDashboard();
+    initializeDashboard();
   }, []);
 
   useEffect(() => {
@@ -229,12 +181,12 @@ export default function AdminDashboardClient() {
     setStatus({ type: "", message: "Loading dashboard..." });
     const [settingsRes, menuRes, galleryRes, bookingsRes, ordersRes, customersRes, feedbackRes] = await Promise.all([
       fetch("/api/settings"),
-      fetch("/api/menu", { headers: { "x-emrakel-role": "admin" } }),
+      fetch("/api/menu"),
       fetch("/api/gallery"),
-      fetch("/api/bookings", { headers: { "x-emrakel-role": "admin" } }),
-      fetch("/api/orders", { headers: { "x-emrakel-role": "admin" } }),
-      fetch("/api/customers", { headers: { "x-emrakel-role": "admin" } }),
-      fetch("/api/feedback", { headers: { "x-emrakel-role": "admin" } })
+      fetch("/api/bookings"),
+      fetch("/api/orders"),
+      fetch("/api/customers"),
+      fetch("/api/feedback")
     ]);
 
     const [settingsData, menuData, galleryData, bookingsData, ordersData, customersData, feedbackData] = await Promise.all([
@@ -284,7 +236,6 @@ export default function AdminDashboardClient() {
     try {
       response = await fetch("/api/uploads", {
         method: "POST",
-        headers: { "x-emrakel-role": "admin" },
         body: formData
       });
       data = await response.json();
@@ -323,8 +274,8 @@ export default function AdminDashboardClient() {
       return "Website URL must start with https://";
     }
 
-    if (/httpemrakelhouse|http:\/\/http/i.test(url)) {
-      return "Please fix the website URL. Use https://emrakelhouse.com";
+    if (/http:\/\/http/i.test(url)) {
+      return "Please fix the website URL. Use https://httpemrakelhouse.com";
     }
 
     if (!seo.title?.trim()) {
@@ -504,6 +455,7 @@ export default function AdminDashboardClient() {
         name: "New Item",
         description: "Item description",
         price: 0,
+        image: brandImage,
         isActive: true
       }
     ]);
@@ -536,6 +488,17 @@ export default function AdminDashboardClient() {
         {visibleItems.length ? (
           visibleItems.map((item) => (
             <div className="menuItemRow" key={item.id}>
+              <div className="menuItemPhotoEditor">
+                <img src={item.image || brandImage} alt="" />
+                <label className="button buttonLine compact">
+                  Upload photo
+                  <input
+                    accept="image/*"
+                    onChange={(event) => uploadAdminImage(event, (value) => updateMenuItem(item.id, { image: value }))}
+                    type="file"
+                  />
+                </label>
+              </div>
               <label>
                 Item
                 <input value={item.name} onChange={(event) => updateMenuItem(item.id, { name: event.target.value })} />
@@ -547,6 +510,22 @@ export default function AdminDashboardClient() {
                   type="number"
                   value={item.price}
                   onChange={(event) => updateMenuItem(item.id, { price: Number(event.target.value) })}
+                />
+              </label>
+              <label className="menuItemDescriptionField">
+                Description
+                <input
+                  value={item.description || ""}
+                  onChange={(event) => updateMenuItem(item.id, { description: event.target.value })}
+                  placeholder="Short description shown to the waiter"
+                />
+              </label>
+              <label className="menuItemImageField">
+                Image URL
+                <input
+                  value={item.image || ""}
+                  onChange={(event) => updateMenuItem(item.id, { image: event.target.value })}
+                  placeholder="/uploads/menu/item.jpg"
                 />
               </label>
               <button
@@ -882,9 +861,20 @@ export default function AdminDashboardClient() {
     }));
   }
 
-  function logout() {
-    localStorage.removeItem("emrakelSession");
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/login";
+  }
+
+  if (session === undefined) {
+    return (
+      <section className="adminAuthState">
+        <div className="panel">
+          <h2>Checking admin session</h2>
+          <p className="contactText">Preparing secure restaurant controls.</p>
+        </div>
+      </section>
+    );
   }
 
   if (!session || session.role !== "admin") {
@@ -927,17 +917,26 @@ export default function AdminDashboardClient() {
                 <nav className="adminSideNav" aria-label="Admin sections">
           {navGroups.map((group) => (
             <div className="adminNavGroup" key={group.label}>
-              <span className="adminNavGroupLabel">{group.label}</span>
-              <div className="adminNavGroupTabs">
-                {group.items.map(([id, label]) => (
-                  <button className={activeTab === id ? "active" : ""} key={id} onClick={() => setActiveTab(id)} type="button">
-                    <span>{label}</span>
-                    {id === "bookings" && totals.pendingBookings ? <small>{totals.pendingBookings}</small> : null}
-                    {id === "orders" && totals.pendingOrders ? <small>{totals.pendingOrders}</small> : null}
-                    {id === "feedback" && totals.newFeedback ? <small>{totals.newFeedback}</small> : null}
-                  </button>
-                ))}
-              </div>
+              <button
+                className={`adminNavGroupToggle ${openNavGroup === group.label ? "open" : ""}`}
+                onClick={() => setOpenNavGroup((current) => current === group.label ? "" : group.label)}
+                type="button"
+              >
+                <span>{group.label}</span>
+                <i>{openNavGroup === group.label ? "−" : "+"}</i>
+              </button>
+              {openNavGroup === group.label ? (
+                <div className="adminNavGroupTabs">
+                  {group.items.map(([id, label]) => (
+                    <button className={activeTab === id ? "active" : ""} key={id} onClick={() => setActiveTab(id)} type="button">
+                      <span>{label}</span>
+                      {id === "bookings" && totals.pendingBookings ? <small>{totals.pendingBookings}</small> : null}
+                      {id === "orders" && totals.pendingOrders ? <small>{totals.pendingOrders}</small> : null}
+                      {id === "feedback" && totals.newFeedback ? <small>{totals.newFeedback}</small> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ))}
         </nav>
@@ -1020,7 +1019,7 @@ export default function AdminDashboardClient() {
               <div className="seoPreviewPanel">
                 <p className="eyebrow">Live preview</p>
                 <SeoPreview siteUrl={seoSiteUrl} title={seo.title} description={seo.description} />
-                <p className="adminHelpText">Keep the URL as https://emrakelhouse.com. Avoid old brand phrases if you do not want Google to show them.</p>
+                <p className="adminHelpText">Keep the URL as https://httpemrakelhouse.com. Avoid old brand phrases if you do not want Google to show them.</p>
               </div>
             </div>
           </div>
@@ -1919,7 +1918,8 @@ export default function AdminDashboardClient() {
         </div>
       ) : null}
 
-      {activeTab === "finance" ? <FinanceAdminTab /> : null}
+      {activeTab === "finance" ? <FinancePanel /> : null}
+      {activeTab === "reports" ? <FinancePanel reportOnly /> : null}
       {activeTab === "orders" ? (
         <div className="adminTableWrap">
           <table className="adminTable">
@@ -1942,11 +1942,12 @@ export default function AdminDashboardClient() {
                   <td>{order.total_amount} ETB</td>
                   <td>{order.order_type}</td>
                   <td>
-                    <select value={order.status} onChange={(event) => updateOrder(order.id, event.target.value)}>
+                    <select disabled={order.status === "finished"} value={order.status} onChange={(event) => updateOrder(order.id, event.target.value)}>
                       <option value="pending">Pending</option>
                       <option value="preparing">Preparing</option>
                       <option value="ready">Ready</option>
-                      <option value="delivered">Delivered</option>
+                      <option value="served">Served</option>
+                      <option value="finished">Finished</option>
                       <option value="cancelled">Cancelled</option>
                     </select>
                   </td>

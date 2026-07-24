@@ -1,19 +1,19 @@
 create extension if not exists "pgcrypto";
 
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  full_name text,
+create table if not exists public.app_users (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique,
+  password_hash text not null,
+  name text not null,
   phone text,
   role text not null default 'customer' check (role in ('customer', 'admin')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.app_users (
-  id uuid primary key default gen_random_uuid(),
-  email text not null unique,
-  password_hash text not null,
-  name text not null,
+create table if not exists public.profiles (
+  id uuid primary key references public.app_users(id) on delete cascade,
+  full_name text,
   phone text,
   role text not null default 'customer' check (role in ('customer', 'admin')),
   created_at timestamptz not null default now(),
@@ -66,7 +66,7 @@ create table if not exists public.gallery_images (
 
 create table if not exists public.table_bookings (
   id uuid primary key default gen_random_uuid(),
-  customer_id uuid references auth.users(id) on delete set null,
+  customer_id uuid references public.app_users(id) on delete set null,
   customer_name text not null,
   phone text not null,
   email text,
@@ -81,7 +81,7 @@ create table if not exists public.table_bookings (
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
-  customer_id uuid references auth.users(id) on delete set null,
+  customer_id uuid references public.app_users(id) on delete set null,
   customer_name text not null,
   phone text not null,
   email text,
@@ -164,19 +164,26 @@ create policy "Customers can create contact messages" on public.contact_messages
 
 insert into public.menu_categories (slug, name, sort_order)
 values
-  ('burgers', 'Burgers', 1),
-  ('pizza', 'Pizza', 2),
-  ('drinks', 'Drinks', 3),
-  ('shakes', 'Shakes', 4),
-  ('mojito', 'Mojito', 5)
-on conflict (slug) do update set
-  name = excluded.name,
-  sort_order = excluded.sort_order,
-  is_active = true,
-  updated_at = now();
+  ('food', 'Food', 1),
+  ('burgers', 'Burgers', 2),
+  ('pizza', 'Pizza', 3),
+  ('sandwiches', 'Sandwiches', 4),
+  ('shawarma', 'Shawarma', 5),
+  ('drinks', 'Drinks', 6),
+  ('shakes', 'Shakes', 7),
+  ('mojito', 'Mojito', 8),
+  ('cocktails', 'Alcoholic Cocktails', 9)
+on conflict (slug) do nothing;
 
-update public.menu_categories set parent_slug = 'drinks' where slug in ('shakes', 'mojito');
-update public.menu_categories set is_active = false where slug = 'cocktails';
+update public.menu_categories
+set parent_slug = 'food'
+where slug in ('burgers', 'pizza', 'sandwiches', 'shawarma')
+  and parent_slug is null;
+
+update public.menu_categories
+set parent_slug = 'drinks'
+where slug in ('shakes', 'mojito', 'cocktails')
+  and parent_slug is null;
 update public.menu_items set image_url = '/uploads/house/menu-board-reference.jpg' where image_url is null or image_url = '/logo.jpg';
 
 delete from public.gallery_images where image_url = '/logo.jpg';
@@ -207,17 +214,4 @@ values
   ('jazz', '{"enabled":true,"eyebrow":"Jazz night","title":"Live evening sessions at EMRAKEL","description":"Warm lights, house drinks, and a relaxed evening atmosphere for guests.","date":"Every Friday","time":"7:30 PM - 10:30 PM","image":"/uploads/house/interior-06.jpg"}')
 on conflict (setting_key) do update set
   setting_value = excluded.setting_value || public.site_settings.setting_value,
-  updated_at = now();
-
-insert into public.app_users (email, password_hash, name, role)
-values (
-  'admin@emrakel.com',
-  'scrypt:a8fe5614b70bcd6715da8aa4e4c270e2:5b39f5032598e67b95602b4a216e2a55d98a6b031bd4f11838c5c980ab241ebd633b4fddad385c1200b5e65670c9ac54f63928b0091b13816d83fcdfa8a97da1',
-  'EMRAKEL Admin',
-  'admin'
-)
-on conflict (email) do update set
-  password_hash = excluded.password_hash,
-  name = excluded.name,
-  role = excluded.role,
   updated_at = now();

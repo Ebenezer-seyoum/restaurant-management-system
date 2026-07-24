@@ -1,10 +1,24 @@
 import { badRequest, isEmail, ok } from "@/lib/api";
 import { forbidden, getLocalState, isAdminRequest, newId, saveLocalState } from "@/lib/cms";
+import {
+  createFeedbackInPostgres,
+  listFeedbackFromPostgres,
+  updateFeedbackInPostgres
+} from "@/lib/cms-db";
 import { getSupabaseServer } from "@/lib/supabase";
 
 export async function GET(request) {
   if (!isAdminRequest(request)) {
     return forbidden();
+  }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      return ok({ feedback: await listFeedbackFromPostgres(), source: "postgres" });
+    } catch (error) {
+      console.error("Unable to read PostgreSQL feedback:", error);
+      return Response.json({ error: "Unable to load feedback." }, { status: 500 });
+    }
   }
 
   const supabase = getSupabaseServer();
@@ -43,6 +57,16 @@ export async function POST(request) {
     status: "new"
   };
 
+  if (process.env.DATABASE_URL) {
+    try {
+      const saved = await createFeedbackInPostgres(message);
+      return ok({ message: "Message sent successfully.", feedback: saved }, 201);
+    } catch (error) {
+      console.error("Unable to create PostgreSQL feedback:", error);
+      return Response.json({ error: "Unable to send the message." }, { status: 500 });
+    }
+  }
+
   const supabase = getSupabaseServer();
 
   if (!supabase) {
@@ -70,6 +94,17 @@ export async function PATCH(request) {
 
   if (!body.id || !body.status) {
     return badRequest("Feedback id and status are required.");
+  }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const feedback = await updateFeedbackInPostgres(body.id, body.status);
+      if (!feedback) return Response.json({ error: "Feedback not found." }, { status: 404 });
+      return ok({ message: "Feedback updated.", feedback, source: "postgres" });
+    } catch (error) {
+      console.error("Unable to update PostgreSQL feedback:", error);
+      return Response.json({ error: "Unable to update feedback." }, { status: 500 });
+    }
   }
 
   const supabase = getSupabaseServer();

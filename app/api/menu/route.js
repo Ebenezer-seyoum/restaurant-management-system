@@ -1,8 +1,19 @@
 import { forbidden, getLocalState, getPublicContent, inferMenuSide, isAdminRequest, saveLocalState } from "@/lib/cms";
+import { readMenuFromPostgres, saveMenuToPostgres } from "@/lib/restaurant-db";
 import { getSupabaseServer } from "@/lib/supabase";
 
 export async function GET(request) {
   if (isAdminRequest(request)) {
+    if (process.env.DATABASE_URL) {
+      try {
+        const menu = await readMenuFromPostgres({ includeInactive: true });
+        return Response.json(menu);
+      } catch (error) {
+        console.error("Unable to read the PostgreSQL menu:", error);
+        return Response.json({ error: "Unable to load the menu from PostgreSQL." }, { status: 500 });
+      }
+    }
+
     const supabase = getSupabaseServer();
 
     if (!supabase) {
@@ -33,6 +44,7 @@ export async function GET(request) {
           name: item.name,
           description: item.description || "",
           price: Number(item.price || 0),
+          image: item.image_url || "",
           isActive: item.is_available !== false
         })),
         source: "supabase"
@@ -55,6 +67,20 @@ export async function PUT(request) {
   const body = await request.json();
   const categories = Array.isArray(body.categories) ? body.categories : [];
   const items = Array.isArray(body.items) ? body.items : [];
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const saved = await saveMenuToPostgres(categories, items);
+      return Response.json({ message: "Menu saved.", ...saved });
+    } catch (error) {
+      console.error("Unable to save the PostgreSQL menu:", error);
+      return Response.json(
+        { error: error.message || "Unable to save the menu." },
+        { status: error.status || 500 }
+      );
+    }
+  }
+
   const supabase = getSupabaseServer();
 
   async function saveLocalMenu(message = "Menu saved locally.") {
@@ -101,7 +127,7 @@ export async function PUT(request) {
       name: item.name,
       description: item.description,
       price: Number(item.price || 0),
-      image_url: null,
+      image_url: item.image || null,
       sort_order: index + 1,
       is_available: item.isActive !== false
     }));

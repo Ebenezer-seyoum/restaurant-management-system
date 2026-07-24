@@ -1,4 +1,5 @@
 import { forbidden, getLocalState, getPublicContent, isAdminRequest, saveLocalState } from "@/lib/cms";
+import { saveSettingsToPostgres } from "@/lib/cms-db";
 import { getSupabaseServer } from "@/lib/supabase";
 
 export async function GET() {
@@ -25,6 +26,17 @@ export async function PUT(request) {
   }
 
   const body = await request.json();
+
+  if (process.env.DATABASE_URL) {
+    try {
+      await saveSettingsToPostgres(body);
+      return Response.json({ message: "Settings saved.", ...body, source: "postgres" });
+    } catch (error) {
+      console.error("Unable to save PostgreSQL settings:", error);
+      return Response.json({ error: "Unable to save website settings." }, { status: 500 });
+    }
+  }
+
   const supabase = getSupabaseServer();
 
   async function saveLocalSettings(message = "Settings saved locally.") {
