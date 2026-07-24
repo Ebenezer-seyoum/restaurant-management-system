@@ -5817,6 +5817,78 @@ html {
   color: rgba(247, 239, 226, 0.76);
 }
 
+/* Login is intentionally scoped so late public-theme rules cannot reduce contrast. */
+.loginPage {
+  min-height: 620px;
+  background: linear-gradient(180deg, #0b0805, #15100a);
+}
+
+.loginPage .pageHero {
+  background:
+    linear-gradient(90deg, rgba(3, 16, 29, 0.98), rgba(3, 16, 29, 0.78)),
+    url("/uploads/house/interior-08.jpg") center / cover;
+}
+
+.loginPage .pageHero h1,
+.loginPage .pageHero .pageLead {
+  color: #f7efe2;
+}
+
+.loginPage .formWrap {
+  background: linear-gradient(180deg, #0b0805, #15100a);
+}
+
+.loginPage .formWrap > .panel,
+.loginPage .formWrap > .formPanel {
+  border: 1px solid rgba(216, 168, 62, 0.58);
+  background: linear-gradient(145deg, #03101d, #071523);
+  color: #f7efe2;
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.3);
+}
+
+.loginPage .formWrap > .panel h2,
+.loginPage .formWrap > .panel .contactText,
+.loginPage .formWrap > .formPanel h2 {
+  color: #f7efe2;
+}
+
+.loginPage .formWrap > .panel h2 {
+  font-size: clamp(34px, 5vw, 64px);
+  line-height: 1.02;
+}
+
+.loginPage .formWrap > .panel .contactText {
+  color: rgba(247, 239, 226, 0.78);
+}
+
+.loginPage .formPanel label {
+  color: #f7efe2;
+  font-weight: 800;
+}
+
+.loginPage .formPanel input {
+  min-height: 54px;
+  border-color: rgba(216, 168, 62, 0.5);
+  background: #020b14;
+  color: #fffaf1;
+}
+
+.loginPage .formPanel input::placeholder {
+  color: rgba(247, 239, 226, 0.48);
+}
+
+.loginPage .formPanel .buttonGold {
+  min-height: 54px;
+  color: #0b0805;
+  font-weight: 900;
+}
+
+.loginPage .loginStatus {
+  margin: 4px 0 0;
+  color: #f0c761;
+  font-weight: 700;
+}
+
 @media (max-width: 760px) {
   .sectionDetailHeroWithImage {
     grid-template-columns: 1fr;

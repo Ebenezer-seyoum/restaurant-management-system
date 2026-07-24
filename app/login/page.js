@@ -27,25 +27,29 @@ export default function LoginPage() {
     setStatus(mode === "login" ? pageText.checkingMessage : pageText.creatingMessage);
 
     const formData = new FormData(event.currentTarget);
-    const response = await fetch(mode === "login" ? "/api/auth/login" : "/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.fromEntries(formData.entries()))
-    });
-    const data = await response.json();
+    try {
+      const response = await fetch(mode === "login" ? "/api/auth/login" : "/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.fromEntries(formData.entries()))
+      });
+      const data = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      setStatus(data.error);
-      return;
+      if (!response.ok) {
+        setStatus(data.error || "Unable to sign in right now. Please try again.");
+        return;
+      }
+
+      window.location.href = data.user.role === "admin" ? "/admin" : "/customer";
+    } catch {
+      setStatus("Unable to reach the login service. Please check the server connection and try again.");
     }
-
-    window.location.href = data.user.role === "admin" ? "/admin" : "/customer";
   }
 
   return (
     <>
       <Header brandData={brand} />
-      <main>
+      <main className="loginPage">
         <section className="pageHero">
           <p className="eyebrow">{pageText.eyebrow}</p>
           <h1>{pageText.headline}</h1>
@@ -93,7 +97,7 @@ export default function LoginPage() {
               <button className="button buttonGold" type="submit">
                 {mode === "login" ? pageText.loginButtonLabel : pageText.registerButtonLabel}
               </button>
-              {status ? <p className="contactText">{status}</p> : null}
+              {status ? <p className="loginStatus" role="status">{status}</p> : null}
             </form>
           </div>
         </section>
