@@ -45,15 +45,33 @@ ADMIN_EMAIL=owner@example.com
 ADMIN_PASSWORD=USE_A_LONG_UNIQUE_PASSWORD
 ADMIN_NAME=EMRAKEL Owner
 
-IMAGE_STORAGE_PROVIDER=local
+IMAGE_STORAGE_PROVIDER=s3
+AWS_REGION=eu-central-1
+AWS_S3_BUCKET=emrakel-images
+AWS_S3_PUBLIC_URL=https://your-cloudfront-or-public-s3-url
+AWS_S3_ENDPOINT=
+AWS_S3_FORCE_PATH_STYLE=false
 UPLOAD_DIR=/app/public/uploads/admin
 UPLOAD_PUBLIC_URL=/uploads/admin
 ```
 
+For S3 uploads, also add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as protected
+Coolify secrets. The bucket must allow reads through its configured public URL, or
+`AWS_S3_PUBLIC_URL` should point to a CloudFront distribution. Never expose AWS
+credentials to browser-side code.
+
 Use `DATABASE_SSL=false` for a private Coolify PostgreSQL service. If the database
 provider requires TLS, set it to `true`.
 
-## 4. Persistent image storage
+## 4. Image storage
+
+The recommended production configuration uses S3. In that mode, image files remain
+available across deployments and no Docker upload volume is required. Use a public
+S3/CloudFront URL in `AWS_S3_PUBLIC_URL` and store the AWS keys as protected Coolify
+secrets.
+
+If S3 is unavailable, the local provider is still supported for development or a
+single VPS:
 
 In the application resource, add persistent storage:
 
@@ -61,8 +79,8 @@ In the application resource, add persistent storage:
 - Destination path: `/app/public/uploads`
 - Suggested volume name: `emrakel-uploads`
 
-Without this volume, newly uploaded menu and gallery images can disappear when the
-container is replaced during a deployment.
+Without this volume, local-provider uploads can disappear when the container is
+replaced during a deployment. This does not affect S3 uploads.
 
 ## 5. Domains and TLS
 

@@ -7,24 +7,36 @@
     "build": "next build",
     "lint": "next lint",
     "typecheck": "next build",
-    "db:migrate": "node database/run-migration.mjs",
-    "db:migrate:all": "node database/migrate-all.mjs",
-    "db:seed-admin": "node database/seed-admin.mjs",
+    "db:migrate": "tsx database/run-migration.ts",
+    "db:migrate:all": "tsx database/migrate-all.ts",
+    "db:seed-admin": "tsx database/seed-admin.ts",
     "db:setup": "npm run db:migrate:all && npm run db:seed-admin",
     "start": "next start -H 0.0.0.0",
     "start:production": "npm run db:setup && next start -H 0.0.0.0"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1095.0",
+    "@aws-sdk/lib-storage": "^3.1095.0",
     "@supabase/supabase-js": "^2.50.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "hono": "^4.7.11",
+    "lucide-react": "^1.26.0",
     "next": "^15.3.4",
     "pg": "^8.22.0",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "eslint": "^9.29.0",
-    "eslint-config-next": "^15.3.4"
+    "eslint-config-next": "^15.3.4",
+    "tsx": "^4.23.1",
+    "typescript": "^6.0.3"
   }
 }
+
