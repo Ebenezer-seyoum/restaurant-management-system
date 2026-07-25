@@ -3,17 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const paymentMethods = ["cash", "card", "telebirr", "bank", "other"];
-const defaultCategories = [
-  "Ingredients",
-  "Maintenance",
-  "Salaries",
-  "Rent",
-  "Utilities",
-  "Transport",
-  "Marketing",
-  "Other"
-];
+const paymentMethods = ["cash", "bank", "telebirr"];
 
 function localDate(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60_000;
@@ -50,20 +40,17 @@ export default function FinancePanel({ reportOnly = false }) {
     paymentBreakdown: [],
     expenseBreakdown: [],
     bestSellers: [],
-    expenseCategories: defaultCategories,
     totals: { income: 0, expenses: 0, profit: 0, transactions: 0 }
   });
   const [filters, setFilters] = useState({
     from: monthStart(),
     to: localDate(),
     type: "all",
-    category: "all",
     payment_method: "all",
     search: ""
   });
   const [preset, setPreset] = useState("month");
   const [form, setForm] = useState({
-    category: "Maintenance",
     description: "",
     amount: "",
     payment_method: "cash",
@@ -162,18 +149,16 @@ export default function FinancePanel({ reportOnly = false }) {
       }),
     [data.expenses, data.income]
   );
-  const categories = [...new Set([...defaultCategories, ...(data.expenseCategories || [])])];
   const chartDays = (data.daily || []).slice(-14);
   const maxDaily = Math.max(1, ...chartDays.flatMap((day) => [Number(day.income), Number(day.expenses)]));
 
   function exportCsv() {
     const lines = [
-      ["Type", "Date", "Category", "Description", "Payment method", "Amount ETB"].map(csvCell).join(","),
+      ["Type", "Date", "Description", "Payment method", "Amount ETB"].map(csvCell).join(","),
       ...rows.map((row) =>
         [
           row.kind,
           String(row.date).slice(0, 10),
-          row.category,
           row.description,
           row.payment_method,
           row.amount
@@ -246,14 +231,6 @@ export default function FinancePanel({ reportOnly = false }) {
             </select>
           </label>
           <label>
-            Category
-            <select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}>
-              <option value="all">All categories</option>
-              <option value="food_sales">Food sales</option>
-              {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-            </select>
-          </label>
-          <label>
             Payment
             <select value={filters.payment_method} onChange={(event) => setFilters((current) => ({ ...current, payment_method: event.target.value }))}>
               <option value="all">All payments</option>
@@ -265,7 +242,7 @@ export default function FinancePanel({ reportOnly = false }) {
             <input
               value={filters.search}
               onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-              placeholder="Description or category"
+              placeholder="Description or payment"
             />
           </label>
         </div>
@@ -303,18 +280,6 @@ export default function FinancePanel({ reportOnly = false }) {
               <p>Example: TV maintenance — 500 ETB.</p>
             </div>
             <div className="expenseEntryFields">
-              <label>
-                Category
-                <input
-                  list="expense-categories"
-                  required
-                  value={form.category}
-                  onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-                />
-                <datalist id="expense-categories">
-                  {categories.map((category) => <option key={category} value={category} />)}
-                </datalist>
-              </label>
               <label>
                 Description
                 <input
@@ -367,13 +332,13 @@ export default function FinancePanel({ reportOnly = false }) {
           </form>
 
           <article className="panel financeSnapshot">
-            <p className="eyebrow">Period snapshot</p>
-            <h2>Where money is going</h2>
-            {(data.expenseBreakdown || []).length ? (
+            <p className="eyebrow">Recent spending</p>
+            <h2>Latest expenses</h2>
+            {(data.expenses || []).length ? (
               <div className="breakdownList">
-                {data.expenseBreakdown.slice(0, 6).map((item) => (
-                  <div key={item.label}>
-                    <span>{item.label}</span>
+                {data.expenses.slice(0, 6).map((item) => (
+                  <div key={item.id}>
+                    <span>{item.description}</span>
                     <strong>{money(item.amount)}</strong>
                   </div>
                 ))}
@@ -445,7 +410,6 @@ export default function FinancePanel({ reportOnly = false }) {
                 <th>Type</th>
                 <th>Date</th>
                 <th>Description</th>
-                <th>Category</th>
                 <th>Payment</th>
                 <th>Amount</th>
                 {!reportOnly ? <th /> : null}
@@ -457,7 +421,6 @@ export default function FinancePanel({ reportOnly = false }) {
                   <td><span className={`transactionBadge ${row.kind.toLowerCase()}`}>{row.kind}</span></td>
                   <td>{dateLabel(row.date)}</td>
                   <td><strong>{row.description}</strong>{row.notes ? <small>{row.notes}</small> : null}</td>
-                  <td>{row.category}</td>
                   <td className="capitalize">{row.payment_method}</td>
                   <td className={row.kind === "Income" ? "incomeValue" : "expenseValue"}>
                     {row.kind === "Income" ? "+" : "-"}{money(row.amount)}
@@ -467,7 +430,7 @@ export default function FinancePanel({ reportOnly = false }) {
                   ) : null}
                 </tr>
               )) : (
-                <tr><td colSpan={reportOnly ? 6 : 7} className="emptyFinanceTable">No transactions match these filters.</td></tr>
+                <tr><td colSpan={reportOnly ? 5 : 6} className="emptyFinanceTable">No transactions match these filters.</td></tr>
               )}
             </tbody>
           </table>

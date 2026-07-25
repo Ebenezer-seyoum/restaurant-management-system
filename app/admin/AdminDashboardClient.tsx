@@ -2,17 +2,42 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  BarChart3,
+  ChevronLeft,
+  ClipboardList,
+  ExternalLink,
+  Globe2,
+  LogOut,
+  MessageSquare,
+  Monitor,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2
+} from "lucide-react";
 import { brandImage } from "@/lib/data";
 import FinancePanel from "./FinancePanel";
 
 const emptyStatus = { type: "", message: "" };
-const navGroups = [
-  { label: "Website", items: [["home", "Home"], ["menu", "Menu"], ["gallery", "Gallery"], ["about", "About Us"], ["contact", "Contact"], ["footer", "Footer"], ["seo", "Google SEO"]] },
-  { label: "Operations", items: [["orders", "Orders"], ["finance", "Finance"], ["reports", "Reports"]] },
-  { label: "Customers", items: [["bookings", "Book Tables"], ["customers", "Customers"], ["feedback", "Feedback"]] },
-  { label: "Extras", items: [["jazz", "Jazz"]] }
+const websiteTabs = [
+  ["home", "Home"],
+  ["menu", "Menu"],
+  ["gallery", "Gallery"],
+  ["about", "About Us"],
+  ["contact", "Contact"],
+  ["footer", "Footer"],
+  ["seo", "Google SEO"],
+  ["jazz", "Jazz"]
 ];
-const navItems = navGroups.flatMap((group) => group.items);
+const operationTabs = [["orders", "Orders"], ["finance", "Expenses"]];
+const navItems = [...websiteTabs, ...operationTabs, ["reports", "Reports"], ["feedback", "Feedback"]];
+const sidebarItems = [
+  { id: "website", label: "Website Customization", icon: Globe2, firstTab: "home" },
+  { id: "operations", label: "Operations", icon: ClipboardList, firstTab: "orders" },
+  { id: "reports", label: "Reports", icon: BarChart3, firstTab: "reports" },
+  { id: "feedback", label: "Feedback", icon: MessageSquare, firstTab: "feedback" }
+];
 
 function adminHeaders() {
   return {
@@ -66,6 +91,15 @@ function displayUrl(siteUrl, path = "/") {
   return `${cleanSite}${cleanPath.startsWith("/") ? cleanPath : `/${cleanPath}`}`;
 }
 
+function slugifyAdminValue(value, fallback = "item") {
+  const slug = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || `${fallback}-${Date.now()}`;
+}
+
 function SeoPreview({ siteUrl, title, description, path = "/" }) {
   return (
     <div className="seoPreviewBox">
@@ -81,8 +115,10 @@ function SeoPreview({ siteUrl, title, description, path = "/" }) {
 
 export default function AdminDashboardClient() {
   const [session, setSession] = useState(undefined);
+  const [activeArea, setActiveArea] = useState("website");
   const [activeTab, setActiveTab] = useState("home");
-  const [openNavGroup, setOpenNavGroup] = useState("Website");
+  const [themeMode, setThemeMode] = useState("auto");
+  const [resolvedTheme, setResolvedTheme] = useState("light");
   const [status, setStatus] = useState(emptyStatus);
   const [brand, setBrand] = useState(null);
   const [home, setHome] = useState(null);
@@ -102,9 +138,15 @@ export default function AdminDashboardClient() {
   const [expandedSubsections, setExpandedSubsections] = useState([]);
   const [sectionSearch, setSectionSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
+  const [selectedMenuSection, setSelectedMenuSection] = useState("");
+  const [menuProductModal, setMenuProductModal] = useState(null);
+  const [menuSectionModal, setMenuSectionModal] = useState(null);
   const [gallery, setGallery] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [adminOrderFilter, setAdminOrderFilter] = useState("all");
+  const [adminCancelOrder, setAdminCancelOrder] = useState(null);
+  const [adminCancelReason, setAdminCancelReason] = useState("");
   const [customers, setCustomers] = useState([]);
   const [feedback, setFeedback] = useState([]);
 
@@ -141,6 +183,10 @@ export default function AdminDashboardClient() {
 
     return query ? haystack.includes(query) : true;
   });
+  const selectedMenuSectionData = categories.find((category) => category.id === selectedMenuSection);
+  const selectedMenuProducts = selectedMenuSectionData
+    ? getVisibleCategoryItems(selectedMenuSectionData.id)
+    : [];
   const seoSiteUrl = normalizeAdminUrl(seo?.siteUrl || "https://httpemrakelhouse.com") || "https://httpemrakelhouse.com";
   const seoMenuUrl = seo?.menuUrl || displayUrl(seoSiteUrl, "/menu");
   const seoSearchConsoleUrls =
@@ -170,6 +216,24 @@ export default function AdminDashboardClient() {
   }, []);
 
   useEffect(() => {
+    const savedTheme = window.localStorage.getItem("emrakel-admin-theme");
+    if (["light", "dark", "auto"].includes(savedTheme || "")) {
+      setThemeMode(savedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const syncTheme = () => {
+      setResolvedTheme(themeMode === "auto" ? (media.matches ? "dark" : "light") : themeMode);
+    };
+    syncTheme();
+    window.localStorage.setItem("emrakel-admin-theme", themeMode);
+    media.addEventListener?.("change", syncTheme);
+    return () => media.removeEventListener?.("change", syncTheme);
+  }, [themeMode]);
+
+  useEffect(() => {
     if (!status.type || !status.message) {
       return undefined;
     }
@@ -180,23 +244,19 @@ export default function AdminDashboardClient() {
 
   async function loadDashboard() {
     setStatus({ type: "", message: "Loading dashboard..." });
-    const [settingsRes, menuRes, galleryRes, bookingsRes, ordersRes, customersRes, feedbackRes] = await Promise.all([
+    const [settingsRes, menuRes, galleryRes, ordersRes, feedbackRes] = await Promise.all([
       fetch("/api/settings"),
       fetch("/api/menu"),
       fetch("/api/gallery"),
-      fetch("/api/bookings"),
       fetch("/api/orders"),
-      fetch("/api/customers"),
       fetch("/api/feedback")
     ]);
 
-    const [settingsData, menuData, galleryData, bookingsData, ordersData, customersData, feedbackData] = await Promise.all([
+    const [settingsData, menuData, galleryData, ordersData, feedbackData] = await Promise.all([
       settingsRes.json(),
       menuRes.json(),
       galleryRes.json(),
-      bookingsRes.json(),
       ordersRes.json(),
-      customersRes.json(),
       feedbackRes.json()
     ]);
 
@@ -214,9 +274,7 @@ export default function AdminDashboardClient() {
     setCategories(menuData.categories || []);
     setItems(menuData.items || []);
     setGallery(galleryData.gallery || []);
-    setBookings(bookingsData.bookings || []);
     setOrders(ordersData.orders || []);
-    setCustomers(customersData.customers || []);
     setFeedback(feedbackData.feedback || []);
     setStatus(emptyStatus);
   }
@@ -319,14 +377,153 @@ export default function AdminDashboardClient() {
 
   async function saveMenu(event?: { preventDefault?: () => void }) {
     event?.preventDefault();
+    return persistMenu(categories, items);
+  }
+
+  async function persistMenu(nextCategories, nextItems, successMessage = "Menu saved successfully.") {
+    setStatus({ type: "", message: "Saving menu..." });
     const response = await fetch("/api/menu", {
       method: "PUT",
       headers: adminHeaders(),
-      body: JSON.stringify({ categories, items })
+      body: JSON.stringify({ categories: nextCategories, items: nextItems })
     });
     const data = await response.json();
-    setStatus({ type: response.ok ? "success" : "error", message: data.message || data.error });
+    if (response.ok) {
+      setCategories(nextCategories);
+      setItems(nextItems);
+    }
+    setStatus({
+      type: response.ok ? "success" : "error",
+      message: response.ok ? successMessage : data.error || "Unable to save menu."
+    });
     return response.ok;
+  }
+
+  function openProductModal(categoryId, item = null) {
+    setMenuProductModal({
+      mode: item ? "edit" : "add",
+      itemId: item?.id || "",
+      categoryId,
+      name: item?.name || "",
+      price: item?.price ?? "",
+      description: item?.description || "",
+      image: item?.image || "",
+      isActive: item?.isActive !== false
+    });
+  }
+
+  async function submitProductModal(event) {
+    event.preventDefault();
+    if (!menuProductModal) return;
+    const name = menuProductModal.name.trim();
+    const price = Number(menuProductModal.price);
+    if (!name || !Number.isFinite(price) || price < 0) {
+      setStatus({ type: "error", message: "Product name and a valid price are required." });
+      return;
+    }
+    const nextItems =
+      menuProductModal.mode === "edit"
+        ? items.map((item) =>
+            item.id === menuProductModal.itemId
+              ? {
+                  ...item,
+                  name,
+                  price,
+                  description: menuProductModal.description.trim(),
+                  image: menuProductModal.image,
+                  isActive: menuProductModal.isActive
+                }
+              : item
+          )
+        : [
+            ...items,
+            {
+              id: `${slugifyAdminValue(name)}-${Date.now()}`,
+              category: menuProductModal.categoryId,
+              name,
+              price,
+              description: menuProductModal.description.trim(),
+              image: menuProductModal.image || brandImage,
+              isActive: true
+            }
+          ];
+    const saved = await persistMenu(categories, nextItems, menuProductModal.mode === "edit" ? "Product updated." : "Product added.");
+    if (saved) setMenuProductModal(null);
+  }
+
+  async function removeProduct(item) {
+    if (!window.confirm(`Delete ${item.name}? This cannot be undone after saving.`)) return;
+    await persistMenu(categories, items.filter((current) => current.id !== item.id), "Product deleted.");
+  }
+
+  async function toggleProduct(item) {
+    await persistMenu(
+      categories,
+      items.map((current) => current.id === item.id ? { ...current, isActive: current.isActive === false } : current),
+      `${item.name} visibility updated.`
+    );
+  }
+
+  function openSectionModal(section = null) {
+    setMenuSectionModal({
+      mode: section ? "edit" : "add",
+      sectionId: section?.id || "",
+      name: section?.name || "",
+      description: section?.description || "",
+      image: section?.image || "",
+      isActive: section?.isActive !== false,
+      menuSide: section?.menuSide || selectedMenuSide
+    });
+  }
+
+  async function submitSectionModal(event) {
+    event.preventDefault();
+    if (!menuSectionModal?.name.trim()) {
+      setStatus({ type: "error", message: "Section name is required." });
+      return;
+    }
+    const root = mainCategories.find((category) => category.id === menuSectionModal.menuSide);
+    const nextCategories =
+      menuSectionModal.mode === "edit"
+        ? categories.map((category) =>
+            category.id === menuSectionModal.sectionId
+              ? {
+                  ...category,
+                  name: menuSectionModal.name.trim(),
+                  description: menuSectionModal.description.trim(),
+                  image: menuSectionModal.image || brandImage,
+                  menuSide: menuSectionModal.menuSide,
+                  parentId: root?.id || menuSectionModal.menuSide,
+                  isActive: menuSectionModal.isActive
+                }
+              : category
+          )
+        : [
+            ...categories,
+            {
+              id: `${slugifyAdminValue(menuSectionModal.name, "section")}-${Date.now()}`,
+              parentId: root?.id || menuSectionModal.menuSide,
+              name: menuSectionModal.name.trim(),
+              description: menuSectionModal.description.trim(),
+              image: menuSectionModal.image || brandImage,
+              menuSide: menuSectionModal.menuSide,
+              isActive: true
+            }
+          ];
+    const saved = await persistMenu(nextCategories, items, menuSectionModal.mode === "edit" ? "Section updated." : "Section added.");
+    if (saved) {
+      setSelectedMenuSide(menuSectionModal.menuSide);
+      setMenuSectionModal(null);
+    }
+  }
+
+  async function removeSection(section) {
+    if (!window.confirm(`Delete ${section.name} and every product inside it?`)) return;
+    const removedIds = [section.id, ...categories.filter((category) => category.parentId === section.id).map((category) => category.id)];
+    const nextCategories = categories.filter((category) => !removedIds.includes(category.id));
+    const nextItems = items.filter((item) => !removedIds.includes(item.category));
+    const saved = await persistMenu(nextCategories, nextItems, "Section and its products deleted.");
+    if (saved) setSelectedMenuSection("");
   }
 
   async function saveGallery(event) {
@@ -351,15 +548,24 @@ export default function AdminDashboardClient() {
     setStatus({ type: response.ok ? "success" : "error", message: data.message || data.error });
   }
 
-  async function updateOrder(id, nextStatus) {
+  async function updateOrder(id, nextStatus, { cancelReason = "", paymentMethod = "" } = {}) {
     const response = await fetch("/api/orders", {
       method: "PATCH",
       headers: adminHeaders(),
-      body: JSON.stringify({ id, status: nextStatus })
+      body: JSON.stringify({
+        id,
+        status: nextStatus,
+        cancel_reason: cancelReason,
+        ...(paymentMethod ? { payment_method: paymentMethod } : {})
+      })
     });
     const data = await response.json();
     await loadDashboard();
     setStatus({ type: response.ok ? "success" : "error", message: data.message || data.error });
+    if (response.ok) {
+      setAdminCancelOrder(null);
+      setAdminCancelReason("");
+    }
   }
 
   async function updateFeedback(id, nextStatus) {
@@ -867,6 +1073,13 @@ export default function AdminDashboardClient() {
     window.location.href = "/login";
   }
 
+  function selectArea(area) {
+    const selected = sidebarItems.find((item) => item.id === area);
+    if (!selected) return;
+    setActiveArea(area);
+    setActiveTab(selected.firstTab);
+  }
+
   if (session === undefined) {
     return (
       <section className="adminAuthState">
@@ -901,7 +1114,7 @@ export default function AdminDashboardClient() {
   }
 
   return (
-    <section className="adminShell">
+    <section className="adminShell" data-admin-theme={resolvedTheme}>
       {status.type && status.message ? (
         <div className={`adminToast ${status.type}`} role="status">
           {status.message}
@@ -915,37 +1128,29 @@ export default function AdminDashboardClient() {
             <span>Admin console</span>
           </div>
         </div>
-                <nav className="adminSideNav" aria-label="Admin sections">
-          {navGroups.map((group) => (
-            <div className="adminNavGroup" key={group.label}>
+        <nav className="adminSideNav adminPrimaryNav" aria-label="Admin sections">
+          <p className="adminNavCaption">Workspace</p>
+          {sidebarItems.map((item) => {
+            const Icon = item.icon;
+            return (
               <button
-                className={`adminNavGroupToggle ${openNavGroup === group.label ? "open" : ""}`}
-                onClick={() => setOpenNavGroup((current) => current === group.label ? "" : group.label)}
+                className={activeArea === item.id ? "active" : ""}
+                key={item.id}
+                onClick={() => selectArea(item.id)}
                 type="button"
               >
-                <span>{group.label}</span>
-                <i>{openNavGroup === group.label ? "−" : "+"}</i>
+                <Icon aria-hidden="true" size={19} strokeWidth={1.9} />
+                <span>{item.label}</span>
+                {item.id === "feedback" && totals.newFeedback ? <small>{totals.newFeedback}</small> : null}
               </button>
-              {openNavGroup === group.label ? (
-                <div className="adminNavGroupTabs">
-                  {group.items.map(([id, label]) => (
-                    <button className={activeTab === id ? "active" : ""} key={id} onClick={() => setActiveTab(id)} type="button">
-                      <span>{label}</span>
-                      {id === "bookings" && totals.pendingBookings ? <small>{totals.pendingBookings}</small> : null}
-                      {id === "orders" && totals.pendingOrders ? <small>{totals.pendingOrders}</small> : null}
-                      {id === "feedback" && totals.newFeedback ? <small>{totals.newFeedback}</small> : null}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ))}
+            );
+          })}
         </nav>
         <div className="adminSidebarFooter">
           <span>Signed in</span>
           <strong>{session.name}</strong>
           <button className="button buttonLine compact" type="button" onClick={logout}>
-            Logout
+            <LogOut aria-hidden="true" size={16} /> Logout
           </button>
         </div>
       </aside>
@@ -953,42 +1158,37 @@ export default function AdminDashboardClient() {
       <div className="adminMain">
         <header className="adminTopbar">
           <div>
-            <p className="eyebrow">Restaurant operations</p>
-            <h1>Dashboard</h1>
-            <p>Manage content, menu items, reservations, and online orders from one workspace.</p>
+            <p className="eyebrow">Admin workspace</p>
+            <h1>{sidebarItems.find((item) => item.id === activeArea)?.label}</h1>
+            <p>Manage the restaurant website, service operations, reports, and customer feedback.</p>
           </div>
           <div className="adminTopActions">
             <button className="button buttonLine compact" type="button" onClick={loadDashboard}>
-              Refresh
+              <RefreshCw aria-hidden="true" size={16} /> Refresh
             </button>
             <a className="button buttonDark compact" href="/" target="_blank">
-              View Site
+              <ExternalLink aria-hidden="true" size={16} /> View Site
             </a>
+            <label className="adminThemeSelect">
+              <Monitor aria-hidden="true" size={17} />
+              <select aria-label="Admin color theme" value={themeMode} onChange={(event) => setThemeMode(event.target.value)}>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="auto">Auto</option>
+              </select>
+            </label>
           </div>
         </header>
 
-        <div className="metricGrid">
-          <div className="adminMetricCard">
-            <span>Pending orders</span>
-            <strong>{totals.pendingOrders}</strong>
-            <small>{totals.totalOrders} total orders</small>
+        {activeArea === "website" || activeArea === "operations" ? (
+          <div className="adminSectionTabs" aria-label={`${activeArea} sections`}>
+            {(activeArea === "website" ? websiteTabs : operationTabs).map(([id, label]) => (
+              <button className={activeTab === id ? "active" : ""} key={id} onClick={() => setActiveTab(id)} type="button">
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
-          <div className="adminMetricCard">
-            <span>Pending bookings</span>
-            <strong>{totals.pendingBookings}</strong>
-            <small>{totals.totalBookings} total bookings</small>
-          </div>
-          <div className="adminMetricCard">
-            <span>Customers</span>
-            <strong>{totals.customers}</strong>
-            <small>registered accounts</small>
-          </div>
-          <div className="adminMetricCard">
-            <span>New feedback</span>
-            <strong>{totals.newFeedback}</strong>
-            <small>{totals.menuItems} menu items</small>
-          </div>
-        </div>
+        ) : null}
 
         <div className="adminContentHeader">
           <div>
@@ -1711,71 +1911,192 @@ export default function AdminDashboardClient() {
       ) : null}
 
       {activeTab === "menu" ? (
-        <form className="adminStack" onSubmit={saveMenu}>
-          <div className="panel menuSimpleHeader">
-            <div className="adminPanelHead">
-              <div>
-                <p className="eyebrow">Menu workspace</p>
-                <h2>Menu sections</h2>
-                <p className="contactText">
-                  Add, edit, and delete food or drink sections from one simple tab.
-                </p>
-              </div>
-              <div className="menuSideSwitch" aria-label="Menu side">
-                <button
-                  className={selectedMenuSide === "food" ? "active" : ""}
-                  onClick={() => setSelectedMenuSide("food")}
-                  type="button"
-                >
-                  Food
-                </button>
-                <button
-                  className={selectedMenuSide === "drinks" ? "active" : ""}
-                  onClick={() => setSelectedMenuSide("drinks")}
-                  type="button"
-                >
-                  Drinks
-                </button>
-              </div>
-            </div>
-            <div className="menuWorkspaceControls">
-              <div className="menuAdminToolbar">
-                <label>
+        <div className="adminStack menuCatalogueWorkspace">
+          {!selectedMenuSectionData ? (
+            <>
+              <section className="panel menuCatalogueHeader">
+                <div>
+                  <p className="eyebrow">Menu catalogue</p>
+                  <h2>Food and drink sections</h2>
+                  <p className="contactText">Open a section to manage its products, prices, photos, and visibility.</p>
+                </div>
+                <div className="menuCatalogueActions">
+                  <div className="menuSideSwitch" aria-label="Menu side">
+                    <button className={selectedMenuSide === "food" ? "active" : ""} onClick={() => setSelectedMenuSide("food")} type="button">Food</button>
+                    <button className={selectedMenuSide === "drinks" ? "active" : ""} onClick={() => setSelectedMenuSide("drinks")} type="button">Drinks</button>
+                  </div>
+                  <button className="button buttonDark compact" type="button" onClick={() => openSectionModal()}>
+                    <Plus aria-hidden="true" size={17} /> Add Section
+                  </button>
+                </div>
+                <label className="menuCatalogueSearch">
                   Search sections
-                  <input
-                    value={sectionSearch}
-                    onChange={(event) => setSectionSearch(event.target.value)}
-                    placeholder="Search section or sub section"
-                  />
+                  <input value={sectionSearch} onChange={(event) => setSectionSearch(event.target.value)} placeholder="Search by section or product" />
                 </label>
+              </section>
+
+              <section className="menuCatalogueGrid">
+                {filteredSimpleMenuSections.length ? filteredSimpleMenuSections.map((section) => {
+                  const sectionItems = getCategoryItems(section.id);
+                  const activeItems = sectionItems.filter((item) => item.isActive !== false).length;
+                  return (
+                    <article className="menuCatalogueCard" key={section.id}>
+                      <img src={section.image || brandImage} alt="" />
+                      <div className="menuCatalogueCardBody">
+                        <div className="menuCatalogueCardTitle">
+                          <div>
+                            <h3>{section.name}</h3>
+                            <p>{section.description || "Restaurant menu section"}</p>
+                          </div>
+                          <span className={section.isActive === false ? "hidden" : ""}>{section.isActive === false ? "Hidden" : "Active"}</span>
+                        </div>
+                        <div className="menuCatalogueStats">
+                          <span>Total products <strong>{sectionItems.length}</strong></span>
+                          <span>Visible <strong>{activeItems}</strong></span>
+                        </div>
+                        <button className="menuSeeMoreButton" type="button" onClick={() => {
+                          setSelectedMenuSection(section.id);
+                          setItemSearch("");
+                        }}>
+                          See More
+                        </button>
+                        <div className="menuCatalogueCardTools">
+                          <button type="button" onClick={() => openSectionModal(section)} aria-label={`Edit ${section.name}`}>
+                            <Pencil aria-hidden="true" size={17} />
+                          </button>
+                          <button className="danger" type="button" onClick={() => removeSection(section)} aria-label={`Delete ${section.name}`}>
+                            <Trash2 aria-hidden="true" size={17} />
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                }) : (
+                  <div className="panel emptyAdminState">
+                    <p className="eyebrow">No sections</p>
+                    <h2>Add a {selectedMenuSide === "drinks" ? "drink" : "food"} section to begin.</h2>
+                  </div>
+                )}
+              </section>
+            </>
+          ) : (
+            <section className="panel menuProductPanel">
+              <div className="menuProductHeader">
+                <button className="menuBackButton" type="button" onClick={() => setSelectedMenuSection("")}>
+                  <ChevronLeft aria-hidden="true" size={18} /> All sections
+                </button>
+                <div>
+                  <p className="eyebrow">Product list</p>
+                  <h2>{selectedMenuSectionData.name}</h2>
+                  <p>{selectedMenuSectionData.description}</p>
+                </div>
+                <div className="menuProductHeaderActions">
+                  <button className="button buttonLine compact" type="button" onClick={() => openSectionModal(selectedMenuSectionData)}>
+                    <Pencil aria-hidden="true" size={16} /> Edit Section
+                  </button>
+                  <button className="button buttonDark compact" type="button" onClick={() => openProductModal(selectedMenuSectionData.id)}>
+                    <Plus aria-hidden="true" size={17} /> Add Product
+                  </button>
+                </div>
+              </div>
+              <div className="menuProductToolbar">
                 <label>
-                  Search items
-                  <input value={itemSearch} onChange={(event) => setItemSearch(event.target.value)} placeholder="Search menu items" />
+                  Search products
+                  <input value={itemSearch} onChange={(event) => setItemSearch(event.target.value)} placeholder="Search name, description, or price" />
                 </label>
+                <span>{selectedMenuProducts.length} products</span>
               </div>
-              <button className="button buttonGold compact" type="button" onClick={addSimpleSection}>
-                Add {selectedMenuSide === "drinks" ? "Drinks" : "Food"} Section
-              </button>
+              <div className="menuProductTableWrap">
+                <table className="menuProductTable">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Price</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedMenuProducts.length ? selectedMenuProducts.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <div className="menuProductIdentity">
+                            <img src={item.image || selectedMenuSectionData.image || brandImage} alt="" />
+                            <span><strong>{item.name}</strong><small>{item.description || "No description"}</small></span>
+                          </div>
+                        </td>
+                        <td><strong>{Number(item.price || 0).toLocaleString()} ETB</strong></td>
+                        <td>
+                          <button className={`menuStatusPill ${item.isActive === false ? "hidden" : ""}`} type="button" onClick={() => toggleProduct(item)}>
+                            {item.isActive === false ? "Hidden" : "Active"}
+                          </button>
+                        </td>
+                        <td>
+                          <div className="menuRowActions">
+                            <button type="button" onClick={() => openProductModal(selectedMenuSectionData.id, item)} aria-label={`Edit ${item.name}`}>
+                              <Pencil aria-hidden="true" size={17} />
+                            </button>
+                            <button className="danger" type="button" onClick={() => removeProduct(item)} aria-label={`Delete ${item.name}`}>
+                              <Trash2 aria-hidden="true" size={17} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={4} className="emptyFinanceTable">No products are in this section yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {menuProductModal ? (
+            <div className="adminModalBackdrop" role="presentation" onMouseDown={() => setMenuProductModal(null)}>
+              <form className="adminModalCard" onMouseDown={(event) => event.stopPropagation()} onSubmit={submitProductModal}>
+                <div className="adminModalHeading">
+                  <div><p className="eyebrow">{menuProductModal.mode === "edit" ? "Edit product" : "New product"}</p><h2>{menuProductModal.mode === "edit" ? menuProductModal.name : `Add to ${selectedMenuSectionData?.name || "section"}`}</h2></div>
+                  <button type="button" onClick={() => setMenuProductModal(null)} aria-label="Close">×</button>
+                </div>
+                <div className="adminModalFields">
+                  <label>Product name<input autoFocus required value={menuProductModal.name} onChange={(event) => setMenuProductModal((current) => ({ ...current, name: event.target.value }))} /></label>
+                  <label>Price (ETB)<input min="0" step="0.01" required type="number" value={menuProductModal.price} onChange={(event) => setMenuProductModal((current) => ({ ...current, price: event.target.value }))} /></label>
+                  <label className="wideField">Description<textarea value={menuProductModal.description} onChange={(event) => setMenuProductModal((current) => ({ ...current, description: event.target.value }))} /></label>
+                  <div className="wideField">
+                    <ImageControl label="Product image" value={menuProductModal.image} onChange={(value) => setMenuProductModal((current) => ({ ...current, image: value }))} onUpload={uploadAdminImage} />
+                  </div>
+                </div>
+                <div className="adminModalActions">
+                  <button className="button buttonLine" type="button" onClick={() => setMenuProductModal(null)}>Cancel</button>
+                  <button className="button buttonDark" type="submit">{menuProductModal.mode === "edit" ? "Save Product" : "Add Product"}</button>
+                </div>
+              </form>
             </div>
-          </div>
+          ) : null}
 
-          <section className="menuSimpleStack">
-            {filteredSimpleMenuSections.length ? (
-              filteredSimpleMenuSections.map((section) => renderSimpleMenuSection(section))
-            ) : (
-              <div className="panel emptyAdminState">
-                <p className="eyebrow">No sections</p>
-                <h2>Add a {selectedMenuSide === "drinks" ? "drink" : "food"} section to begin.</h2>
-              </div>
-            )}
-          </section>
-
-          <div className="actions">
-            <button className="button buttonGold" type="submit">
-              Save Menu
-            </button>
-          </div>
-        </form>
+          {menuSectionModal ? (
+            <div className="adminModalBackdrop" role="presentation" onMouseDown={() => setMenuSectionModal(null)}>
+              <form className="adminModalCard" onMouseDown={(event) => event.stopPropagation()} onSubmit={submitSectionModal}>
+                <div className="adminModalHeading">
+                  <div><p className="eyebrow">{menuSectionModal.mode === "edit" ? "Edit section" : "New section"}</p><h2>{menuSectionModal.mode === "edit" ? menuSectionModal.name : "Add menu section"}</h2></div>
+                  <button type="button" onClick={() => setMenuSectionModal(null)} aria-label="Close">×</button>
+                </div>
+                <div className="adminModalFields">
+                  <label>Section name<input autoFocus required value={menuSectionModal.name} onChange={(event) => setMenuSectionModal((current) => ({ ...current, name: event.target.value }))} /></label>
+                  <label>Menu side<select value={menuSectionModal.menuSide} onChange={(event) => setMenuSectionModal((current) => ({ ...current, menuSide: event.target.value }))}><option value="food">Food</option><option value="drinks">Drinks</option></select></label>
+                  <label className="wideField">Description<textarea value={menuSectionModal.description} onChange={(event) => setMenuSectionModal((current) => ({ ...current, description: event.target.value }))} /></label>
+                  <div className="wideField">
+                    <ImageControl label="Section image" value={menuSectionModal.image} onChange={(value) => setMenuSectionModal((current) => ({ ...current, image: value }))} onUpload={uploadAdminImage} />
+                  </div>
+                </div>
+                <div className="adminModalActions">
+                  <button className="button buttonLine" type="button" onClick={() => setMenuSectionModal(null)}>Cancel</button>
+                  <button className="button buttonDark" type="submit">{menuSectionModal.mode === "edit" ? "Save Section" : "Add Section"}</button>
+                </div>
+              </form>
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       {activeTab === "gallery" ? (
@@ -1820,69 +2141,6 @@ export default function AdminDashboardClient() {
         </form>
       ) : null}
 
-      {activeTab === "bookings" ? (
-        <div className="adminTableWrap">
-          <table className="adminTable">
-            <thead>
-              <tr>
-                <th>Customer</th>
-                <th>Phone</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Guests</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.map((booking) => (
-                <tr key={booking.id}>
-                  <td>{booking.customer_name}</td>
-                  <td>{booking.phone}</td>
-                  <td>{booking.booking_date}</td>
-                  <td>{booking.booking_time}</td>
-                  <td>{booking.guests}</td>
-                  <td>
-                    <select value={booking.status} onChange={(event) => updateBooking(booking.id, event.target.value)}>
-                      <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="cancelled">Cancelled</option>
-                      <option value="completed">Completed</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
-      {activeTab === "customers" ? (
-        <div className="adminTableWrap">
-          <table className="adminTable">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Role</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customers.map((customer) => (
-                <tr key={customer.id || customer.email}>
-                  <td>{customer.name}</td>
-                  <td>{customer.email}</td>
-                  <td>{customer.phone || "-"}</td>
-                  <td>{customer.role}</td>
-                  <td>{customer.created_at ? new Date(customer.created_at).toLocaleDateString() : "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
       {activeTab === "feedback" ? (
         <div className="adminTableWrap">
           <table className="adminTable">
@@ -1892,6 +2150,7 @@ export default function AdminDashboardClient() {
                 <th>Contact</th>
                 <th>Subject</th>
                 <th>Message</th>
+                <th>Received</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -1905,6 +2164,7 @@ export default function AdminDashboardClient() {
                   </td>
                   <td>{item.subject || "Website feedback"}</td>
                   <td>{item.message}</td>
+                  <td>{item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</td>
                   <td>
                     <select value={item.status} onChange={(event) => updateFeedback(item.id, event.target.value)}>
                       <option value="new">New</option>
@@ -1922,40 +2182,108 @@ export default function AdminDashboardClient() {
       {activeTab === "finance" ? <FinancePanel /> : null}
       {activeTab === "reports" ? <FinancePanel reportOnly /> : null}
       {activeTab === "orders" ? (
-        <div className="adminTableWrap">
-          <table className="adminTable">
-            <thead>
-              <tr>
-                <th>Customer</th>
-                <th>Phone</th>
-                <th>Items</th>
-                <th>Total</th>
-                <th>Type</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order.id}>
-                  <td>{order.customer_name}</td>
-                  <td>{order.phone}</td>
-                  <td>{(order.items || order.order_items || []).map((item) => `${item.quantity}x ${item.name}`).join(", ")}</td>
-                  <td>{order.total_amount} ETB</td>
-                  <td>{order.order_type}</td>
-                  <td>
-                    <select disabled={order.status === "finished"} value={order.status} onChange={(event) => updateOrder(order.id, event.target.value)}>
-                      <option value="pending">Pending</option>
-                      <option value="preparing">Preparing</option>
-                      <option value="ready">Ready</option>
-                      <option value="served">Served</option>
-                      <option value="finished">Finished</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </td>
+        <div className="adminStack adminOrdersWorkspace">
+          <section className="panel adminOrdersHeader">
+            <div>
+              <p className="eyebrow">Restaurant service</p>
+              <h2>Waiter orders</h2>
+              <p>Orders remain pending until they are finished and recorded as income, or cancelled with a reason.</p>
+            </div>
+            <span>{orders.length} total orders</span>
+          </section>
+          <div className="adminOrderStatusTabs" aria-label="Order status">
+            {[
+              ["all", "All Orders"],
+              ["pending", "Pending"],
+              ["finished", "Finished"],
+              ["cancelled", "Cancelled"]
+            ].map(([id, label]) => (
+              <button className={adminOrderFilter === id ? "active" : ""} key={id} onClick={() => setAdminOrderFilter(id)} type="button">
+                {label}
+                <small>{id === "all" ? orders.length : orders.filter((order) => order.status === id).length}</small>
+              </button>
+            ))}
+          </div>
+          <div className="adminTableWrap adminOrderTableWrap">
+            <table className="adminTable adminOrderTable">
+              <thead>
+                <tr>
+                  <th>Order / Time</th>
+                  <th>Table</th>
+                  <th>Items</th>
+                  <th>Qty</th>
+                  <th>Payment</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {orders
+                  .filter((order) => adminOrderFilter === "all" || order.status === adminOrderFilter)
+                  .map((order) => {
+                    const lines = order.items || order.order_items || [];
+                    const quantity = lines.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+                    return (
+                      <tr key={order.id}>
+                        <td>
+                          <strong>#{String(order.id).slice(-6).toUpperCase()}</strong>
+                          <small>{order.created_at ? new Date(order.created_at).toLocaleString() : "-"}</small>
+                        </td>
+                        <td>{order.table_number ? `Table ${order.table_number}` : order.customer_name || "-"}</td>
+                        <td><div className="adminOrderItems">{lines.map((item) => <span key={item.id || `${item.name}-${item.quantity}`}>{item.name} <b>×{item.quantity}</b></span>)}</div></td>
+                        <td>{quantity}</td>
+                        <td className="capitalize">{order.payment_method || "cash"}</td>
+                        <td><strong>{Number(order.total_amount || 0).toLocaleString()} ETB</strong></td>
+                        <td>
+                          <span className={`adminOrderBadge ${order.status}`}>{order.status}</span>
+                          {order.status === "cancelled" && order.cancel_reason ? <small>{order.cancel_reason}</small> : null}
+                        </td>
+                        <td>
+                          {order.status === "pending" ? (
+                            <div className="adminOrderActions">
+                              <button className="finish" type="button" onClick={() => updateOrder(order.id, "finished", { paymentMethod: order.payment_method || "cash" })}>Finish</button>
+                              <button className="cancel" type="button" onClick={() => {
+                                setAdminCancelOrder(order);
+                                setAdminCancelReason("");
+                              }}>Cancel</button>
+                            </div>
+                          ) : <span className="adminLockedOrder">Locked</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+          {adminCancelOrder ? (
+            <div className="adminModalBackdrop" role="presentation" onMouseDown={() => setAdminCancelOrder(null)}>
+              <form
+                className="adminModalCard"
+                onMouseDown={(event) => event.stopPropagation()}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  updateOrder(adminCancelOrder.id, "cancelled", {
+                    cancelReason: adminCancelReason.trim(),
+                    paymentMethod: adminCancelOrder.payment_method || "cash"
+                  });
+                }}
+              >
+                <div className="adminModalHeading">
+                  <div><p className="eyebrow">Cancel order</p><h2>Record the reason</h2></div>
+                  <button type="button" onClick={() => setAdminCancelOrder(null)} aria-label="Close">×</button>
+                </div>
+                <label>
+                  Cancellation reason
+                  <textarea autoFocus required value={adminCancelReason} onChange={(event) => setAdminCancelReason(event.target.value)} placeholder="Why was this order cancelled?" />
+                </label>
+                <div className="adminModalActions">
+                  <button className="button buttonLine" type="button" onClick={() => setAdminCancelOrder(null)}>Keep order</button>
+                  <button className="button buttonDark" disabled={!adminCancelReason.trim()} type="submit">Confirm cancellation</button>
+                </div>
+              </form>
+            </div>
+          ) : null}
         </div>
       ) : null}
       </div>

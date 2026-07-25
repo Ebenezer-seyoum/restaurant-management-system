@@ -20,19 +20,20 @@ function buildFilters(filters, type) {
     params.push(filters.to);
     clauses.push(`${dateColumn} <= $${params.length}::date`);
   }
-  if (filters.category && filters.category !== "all") {
-    params.push(filters.category);
-    clauses.push(`category = $${params.length}`);
-  }
   if (filters.paymentMethod && filters.paymentMethod !== "all") {
     params.push(filters.paymentMethod);
     clauses.push(`payment_method = $${params.length}`);
   }
   if (filters.search) {
     params.push(`%${filters.search}%`);
-    clauses.push(
-      `(description ilike $${params.length} or category ilike $${params.length} or payment_method ilike $${params.length})`
-    );
+    const searchColumns = [
+      `description ilike $${params.length}`,
+      `payment_method ilike $${params.length}`
+    ];
+    if (type === "expense") {
+      searchColumns.push(`coalesce(notes, '') ilike $${params.length}`);
+    }
+    clauses.push(`(${searchColumns.join(" or ")})`);
   }
 
   return {
@@ -127,7 +128,7 @@ export async function readFinanceFromPostgres(filters = {}) {
   const shouldReadIncome = type === "all" || type === "income";
   const shouldReadExpenses = type === "all" || type === "expense";
 
-  const [incomeResult, expenseResult, categoryResult, bestSellers] = await Promise.all([
+  const [incomeResult, expenseResult, bestSellers] = await Promise.all([
     shouldReadIncome
       ? db.query(
           `select id, order_id, category, description, amount, payment_method,
@@ -150,12 +151,6 @@ export async function readFinanceFromPostgres(filters = {}) {
           expenseFilters.params
         )
       : Promise.resolve({ rows: [] }),
-    db.query(
-      `select name
-       from public.expense_categories
-       where is_active = true
-       order by name`
-    ),
     type === "expense" ? Promise.resolve([]) : readBestSellers(db, filters)
   ]);
 
@@ -168,12 +163,10 @@ export async function readFinanceFromPostgres(filters = {}) {
     expenses,
     ...summary,
     bestSellers,
-    expenseCategories: categoryResult.rows.map((row) => row.name),
     filters: {
       from: filters.from || "",
       to: filters.to || "",
       type,
-      category: filters.category || "all",
       paymentMethod: filters.paymentMethod || "all",
       search: filters.search || ""
     },
@@ -186,22 +179,12 @@ export async function createPostgresExpense(body, userId = null) {
   if (!db) return null;
 
   return withTransaction(async (client) => {
-    const category = String(body.category || "Other").trim() || "Other";
-    const categoryResult = await client.query(
-      `insert into public.expense_categories (name)
-       values ($1)
-       on conflict (name) do update set is_active = true
-       returning id`,
-      [category]
-    );
     const result = await client.query(
       `insert into public.expenses
         (category_id, category, description, amount, payment_method, expense_date, notes, receipt_url, created_by)
-       values ($1, $2, $3, $4, $5, coalesce($6::date, current_date), $7, $8, $9)
+       values (null, 'Operating expense', $1, $2, $3, coalesce($4::date, current_date), $5, $6, $7)
        returning *`,
       [
-        categoryResult.rows[0].id,
-        category,
         String(body.description || "").trim(),
         Number(body.amount),
         body.payment_method || "cash",

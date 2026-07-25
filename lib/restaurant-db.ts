@@ -2,7 +2,7 @@
 import { getDbPool, withTransaction } from "@/lib/db";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const orderStatuses = new Set(["pending", "preparing", "ready", "served", "finished", "cancelled"]);
+const orderStatuses = new Set(["pending", "finished", "cancelled"]);
 
 function inferSide(category) {
   const value = [category?.slug, category?.name, category?.description, category?.parent_slug]
@@ -304,7 +304,11 @@ export async function createOrderInPostgres(body) {
   });
 }
 
-export async function updateOrderStatusInPostgres(id, status, { paymentMethod = null, userId = null } = {}) {
+export async function updateOrderStatusInPostgres(
+  id,
+  status,
+  { paymentMethod = null, userId = null, cancelReason = "" } = {}
+) {
   const pool = getDbPool();
   if (!pool) return null;
 
@@ -318,24 +322,37 @@ export async function updateOrderStatusInPostgres(id, status, { paymentMethod = 
     );
     const existing = existingRows[0];
     if (!existing) throw requestError("Order not found.", 404);
-    if (existing.status === "finished" && nextStatus !== "finished") {
-      throw requestError("Finished orders are locked because their income has already been recorded.", 409);
+    if (["finished", "cancelled"].includes(existing.status) && nextStatus !== existing.status) {
+      throw requestError("Completed and cancelled orders are locked.", 409);
+    }
+    const normalizedCancelReason = String(cancelReason || "").trim();
+    if (nextStatus === "cancelled" && !normalizedCancelReason) {
+      throw requestError("A cancellation reason is required.", 400);
     }
 
     const finishedAt = nextStatus === "finished" ? new Date() : existing.finished_at;
-    const servedAt = nextStatus === "served" ? new Date() : existing.served_at;
     const paidAt = nextStatus === "finished" ? new Date() : existing.paid_at;
+    const cancelledAt = nextStatus === "cancelled" ? new Date() : existing.cancelled_at;
     const { rows } = await client.query(
       `update public.orders
        set status = $2,
            payment_method = coalesce($3, payment_method),
-           served_at = $4,
-           finished_at = $5,
-           paid_at = $6,
+           finished_at = $4,
+           paid_at = $5,
+           cancel_reason = case when $2 = 'cancelled' then $6 else cancel_reason end,
+           cancelled_at = $7,
            updated_at = now()
        where id = $1
        returning *`,
-      [existing.id, nextStatus, paymentMethod || null, servedAt, finishedAt, paidAt]
+      [
+        existing.id,
+        nextStatus,
+        paymentMethod || null,
+        finishedAt,
+        paidAt,
+        normalizedCancelReason || null,
+        cancelledAt
+      ]
     );
     const order = rows[0];
 
@@ -361,7 +378,11 @@ export async function updateOrderStatusInPostgres(id, status, { paymentMethod = 
       [
         userId && uuidPattern.test(String(userId)) ? userId : null,
         String(order.id),
-        JSON.stringify({ from: existing.status, to: nextStatus })
+        JSON.stringify({
+          from: existing.status,
+          to: nextStatus,
+          ...(normalizedCancelReason ? { reason: normalizedCancelReason } : {})
+        })
       ]
     );
 

@@ -163,18 +163,29 @@ export async function PATCH(request) {
     return badRequest("A valid order update is required.");
   }
   if (!body.id || !body.status) return badRequest("Order id and status are required.");
+  const nextStatus = String(body.status || "").toLowerCase();
+  if (!["pending", "finished", "cancelled"].includes(nextStatus)) {
+    return badRequest("Order status must be pending, finished, or cancelled.");
+  }
+  const cancelReason = String(body.cancel_reason || "").trim();
+  if (nextStatus === "cancelled" && !cancelReason) {
+    return badRequest("A cancellation reason is required.");
+  }
 
   if (process.env.DATABASE_URL) {
     try {
       const session = getSessionFromRequest(request);
       const order = await updateOrderStatusInPostgres(body.id, body.status, {
         paymentMethod: body.payment_method || null,
-        userId: session?.id || null
+        userId: session?.id || null,
+        cancelReason
       });
       return ok({
-        message: body.status === "finished"
+        message: nextStatus === "finished"
           ? "Order finished and recorded as income."
-          : "Order status updated.",
+          : nextStatus === "cancelled"
+            ? "Order cancelled with its reason recorded."
+            : "Order status updated.",
         order,
         source: "postgres"
       });
@@ -190,13 +201,19 @@ export async function PATCH(request) {
   const supabase = getSupabaseServer();
   if (!supabase) {
     const state = await getLocalState();
+    const existingOrder = state.orders.find((order) => order.id === body.id);
+    if (existingOrder && ["finished", "cancelled"].includes(existingOrder.status) && existingOrder.status !== nextStatus) {
+      return Response.json({ error: "Completed and cancelled orders are locked." }, { status: 409 });
+    }
     const orders = state.orders.map((order) =>
       order.id === body.id
         ? {
             ...order,
-            status: body.status,
+            status: nextStatus,
             payment_method: body.payment_method || order.payment_method || "cash",
-            finished_at: body.status === "finished" ? new Date().toISOString() : order.finished_at,
+            finished_at: nextStatus === "finished" ? new Date().toISOString() : order.finished_at,
+            cancel_reason: nextStatus === "cancelled" ? cancelReason : order.cancel_reason,
+            cancelled_at: nextStatus === "cancelled" ? new Date().toISOString() : order.cancelled_at,
             updated_at: new Date().toISOString()
           }
         : order
@@ -204,7 +221,7 @@ export async function PATCH(request) {
     const income = state.income || [];
     const completedOrder = orders.find((item) => item.id === body.id);
     const nextIncome =
-      body.status === "finished" && !income.some((item) => item.order_id === body.id)
+      nextStatus === "finished" && !income.some((item) => item.order_id === body.id)
         ? [
             {
               id: newId("income"),
@@ -224,13 +241,17 @@ export async function PATCH(request) {
   }
 
   const update = {
-    status: body.status,
+    status: nextStatus,
     updated_at: new Date().toISOString()
   };
   if (body.payment_method) update.payment_method = body.payment_method;
-  if (body.status === "finished") {
+  if (nextStatus === "finished") {
     update.finished_at = new Date().toISOString();
     update.paid_at = new Date().toISOString();
+  }
+  if (nextStatus === "cancelled") {
+    update.cancel_reason = cancelReason;
+    update.cancelled_at = new Date().toISOString();
   }
   const { data, error } = await supabase
     .from("orders")
@@ -240,7 +261,7 @@ export async function PATCH(request) {
     .single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  if (body.status === "finished" && data) {
+  if (nextStatus === "finished" && data) {
     const { error: incomeError } = await supabase.from("income_transactions").upsert(
       {
         order_id: data.id,
@@ -255,6 +276,10 @@ export async function PATCH(request) {
     if (incomeError) return Response.json({ error: incomeError.message }, { status: 500 });
   }
 
-  return ok({ message: "Order updated.", order: data, source: "supabase" });
+  return ok({
+    message: nextStatus === "cancelled" ? "Order cancelled with its reason recorded." : "Order updated.",
+    order: data,
+    source: "supabase"
+  });
 }
 

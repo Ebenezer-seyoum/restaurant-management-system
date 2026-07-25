@@ -7,10 +7,9 @@ import { menuCategories, menuItems } from "@/lib/data";
 const money = (value) =>
   `${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} ETB`;
 const statusFlow = {
-  pending: { label: "Pending", icon: "◷", next: "preparing", action: "Start Preparing" },
-  preparing: { label: "Preparing", icon: "♨", next: "ready", action: "Mark Ready" },
-  ready: { label: "Ready", icon: "⌒", next: "finished", action: "Finish Order" },
-  finished: { label: "Finished", icon: "✓", next: null, action: "" }
+  pending: { label: "Pending", icon: "◷" },
+  finished: { label: "Finished", icon: "✓" },
+  cancelled: { label: "Cancelled", icon: "×" }
 };
 const statuses = Object.keys(statusFlow);
 
@@ -41,6 +40,8 @@ export default function OrdersClient() {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [online, setOnline] = useState(true);
+  const [cancelOrder, setCancelOrder] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   async function loadMenu() {
     try {
@@ -180,7 +181,7 @@ export default function OrdersClient() {
     }
   }
 
-  async function updateStatus(order, nextStatus) {
+  async function updateStatus(order, nextStatus, reason = "") {
     setMessage("Updating order...");
     const response = await fetch("/api/orders", {
       method: "PATCH",
@@ -188,7 +189,8 @@ export default function OrdersClient() {
       body: JSON.stringify({
         id: order.id,
         status: nextStatus,
-        payment_method: order.payment_method || paymentMethod
+        payment_method: order.payment_method || paymentMethod,
+        cancel_reason: reason
       })
     });
     const result = await response.json();
@@ -199,9 +201,19 @@ export default function OrdersClient() {
     setMessage(
       nextStatus === "finished"
         ? "Order finished. The total was added to income once."
-        : `Order moved to ${statusFlow[nextStatus].label}.`
+        : nextStatus === "cancelled"
+          ? "Order cancelled and the reason was recorded."
+          : `Order moved to ${statusFlow[nextStatus].label}.`
     );
+    setCancelOrder(null);
+    setCancelReason("");
     await loadOrders();
+  }
+
+  async function confirmCancellation(event) {
+    event.preventDefault();
+    if (!cancelOrder || !cancelReason.trim()) return;
+    await updateStatus(cancelOrder, "cancelled", cancelReason.trim());
   }
 
   return (
@@ -343,9 +355,8 @@ export default function OrdersClient() {
                 Payment
                 <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
                   <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                  <option value="telebirr">Telebirr</option>
                   <option value="bank">Bank transfer</option>
+                  <option value="telebirr">Telebirr</option>
                 </select>
               </label>
               <label>
@@ -407,14 +418,28 @@ export default function OrdersClient() {
                       <strong>{money(order.total_amount)}</strong>
                       <span>{order.payment_method || "cash"}</span>
                     </div>
-                    {flow.next ? (
-                      <button
-                        className={`waiterFinishButton status-${order.status}`}
-                        onClick={() => updateStatus(order, flow.next)}
-                        type="button"
-                      >
-                        {flow.next === "finished" ? "✓" : "→"} {flow.action}
-                      </button>
+                    {order.status === "pending" ? (
+                      <div className="waiterOrderActions">
+                        <button
+                          className="waiterCancelButton"
+                          onClick={() => {
+                            setCancelOrder(order);
+                            setCancelReason("");
+                          }}
+                          type="button"
+                        >
+                          × Cancel
+                        </button>
+                        <button
+                          className="waiterFinishButton status-pending"
+                          onClick={() => updateStatus(order, "finished")}
+                          type="button"
+                        >
+                          ✓ Finish
+                        </button>
+                      </div>
+                    ) : order.status === "cancelled" ? (
+                      <span className="waiterCancelledLabel">× {order.cancel_reason || "Cancelled"}</span>
                     ) : (
                       <span className="waiterCompletedLabel">✓ Recorded in income</span>
                     )}
@@ -425,6 +450,35 @@ export default function OrdersClient() {
           </section>
         </aside>
       </div>
+      {cancelOrder ? (
+        <div className="adminModalBackdrop" role="presentation" onMouseDown={() => setCancelOrder(null)}>
+          <form
+            className="adminModalCard waiterCancelModal"
+            onMouseDown={(event) => event.stopPropagation()}
+            onSubmit={confirmCancellation}
+          >
+            <div>
+              <p className="eyebrow">Cancel order</p>
+              <h2>Why is this order cancelled?</h2>
+              <p>Table {cancelOrder.table_number || "-"} · {money(cancelOrder.total_amount)}</p>
+            </div>
+            <label>
+              Cancellation reason
+              <textarea
+                autoFocus
+                required
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                placeholder="Write the reason before cancelling"
+              />
+            </label>
+            <div className="adminModalActions">
+              <button className="button buttonLine" type="button" onClick={() => setCancelOrder(null)}>Keep order</button>
+              <button className="button buttonDark" type="submit">Cancel order</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </section>
   );
 }

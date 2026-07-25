@@ -24,7 +24,6 @@ function financeFilters(c) {
     from: c.req.query("from") || "",
     to: c.req.query("to") || "",
     type: c.req.query("type") || "all",
-    category: c.req.query("category") || "all",
     paymentMethod: c.req.query("payment_method") || "all",
     search: c.req.query("search") || ""
   };
@@ -38,13 +37,12 @@ async function financeResponse(c) {
   const postgresFinance = await readFinanceFromPostgres(filters);
   if (postgresFinance) return c.json(postgresFinance);
 
-  const { from, to, type, category, paymentMethod, search } = filters;
+  const { from, to, type, paymentMethod, search } = filters;
   const state = await getLocalState();
   const inRange = (value) => (!from || value >= from) && (!to || value <= to);
   const matches = (item) =>
-    (category === "all" || item.category === category) &&
     (paymentMethod === "all" || item.payment_method === paymentMethod) &&
-    (!search || [item.description, item.category, item.payment_method].join(" ").toLowerCase().includes(search.toLowerCase()));
+    (!search || [item.description, item.notes, item.payment_method].join(" ").toLowerCase().includes(search.toLowerCase()));
   const income = type === "expense" ? [] : (state.income || []).filter((item) =>
     inRange(String(item.transaction_date || item.created_at).slice(0, 10)) && matches(item)
   );
@@ -55,7 +53,6 @@ async function financeResponse(c) {
   );
   const incomeTotal = income.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const expenseTotal = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const expenseCategories = [...new Set(["Ingredients", "Maintenance", "Salaries", "Rent", "Utilities", "Transport", "Marketing", "Other", ...expenses.map((item) => item.category)])];
   return c.json({
     income,
     expenses,
@@ -63,7 +60,6 @@ async function financeResponse(c) {
     paymentBreakdown: [],
     expenseBreakdown: [],
     bestSellers: [],
-    expenseCategories,
     totals: { income: incomeTotal, expenses: expenseTotal, profit: incomeTotal - expenseTotal, transactions: income.length + expenses.length },
     source: "local"
   });
@@ -78,14 +74,17 @@ app.post("/expenses", async (c) => {
 
   const body = await c.req.json();
   const amount = Number(body.amount);
-  if (!body.category || !body.description || !Number.isFinite(amount) || amount <= 0) return c.json({ error: "Category, description, and a positive amount are required." }, 400);
+  if (!body.description || !Number.isFinite(amount) || amount <= 0) return c.json({ error: "Description and a positive amount are required." }, 400);
+  if (!["cash", "bank", "telebirr"].includes(String(body.payment_method || "cash"))) {
+    return c.json({ error: "Payment method must be cash, bank, or Telebirr." }, 400);
+  }
   const session = getSessionFromRequest(c.req.raw);
   const postgresExpense = await createPostgresExpense(body, session?.id || null);
   if (postgresExpense) return c.json({ expense: postgresExpense }, 201);
   const state = await getLocalState();
   const expense = {
     id: newId("expense"),
-    category: body.category,
+    category: "Operating expense",
     description: body.description,
     amount,
     payment_method: body.payment_method || "cash",

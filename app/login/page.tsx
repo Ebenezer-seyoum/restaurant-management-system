@@ -3,21 +3,20 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Footer, Header } from "../shared";
-import { brand as defaultBrand, footerSettings, loginPageSettings } from "@/lib/data";
+import { ArrowLeft, Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { brand as defaultBrand, loginPageSettings } from "@/lib/data";
 
 export default function LoginPage() {
   const [status, setStatus] = useState("");
   const [brand, setBrand] = useState(defaultBrand);
-  const [footer, setFooter] = useState(footerSettings);
   const [pageText, setPageText] = useState(loginPageSettings);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings")
       .then((response) => response.json())
       .then((data) => {
         setBrand({ ...defaultBrand, ...(data.brand || {}) });
-        setFooter({ ...footerSettings, ...(data.footer || {}) });
         setPageText({ ...loginPageSettings, ...(data.loginPage || {}) });
       })
       .catch(() => undefined);
@@ -54,46 +53,57 @@ export default function LoginPage() {
   }
 
   return (
-    <>
-      <Header brandData={brand} />
-      <main className="loginPage">
-        <div className="loginCard" aria-labelledby="login-title">
-        <Link className="loginBrand" href="/" aria-label={`${brand.name} home`}>
+    <main className="loginPage loginPageStandalone">
+      <section className="loginCard loginStandaloneCard" aria-labelledby="login-title">
+        <div className="loginStandaloneBrand">
           <span className="loginLogoShell">
             <img src={brand.logoImage || "/logo.png"} alt="" />
           </span>
-          <span>
-            <strong>{brand.name}</strong>
-            <small>{brand.subtitle}</small>
-          </span>
-        </Link>
-
-        <div className="loginIntro">
-          <p className="eyebrow">{pageText.eyebrow}</p>
-          <h1 id="login-title">{pageText.loginTabLabel || "Login"}</h1>
-          <p>{pageText.description}</p>
+          <div>
+            <p className="eyebrow">Secure admin access</p>
+            <h1 id="login-title">{pageText.loginTabLabel || "Admin Login"}</h1>
+            <p>Sign in to manage {brand.name}.</p>
+          </div>
         </div>
 
-        <form className="loginForm" onSubmit={handleSubmit}>
+        <form className="loginForm loginStandaloneForm" onSubmit={handleSubmit}>
           <label>
             {pageText.emailLabel}
             <input name="email" type="email" required placeholder={pageText.loginEmailPlaceholder} autoComplete="email" />
           </label>
           <label>
             {pageText.passwordLabel}
-            <input name="password" type="password" required placeholder={pageText.loginPasswordPlaceholder} autoComplete="current-password" />
+            <span className="loginPasswordField">
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                placeholder={pageText.loginPasswordPlaceholder}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </span>
           </label>
           <button className="button buttonGold" type="submit">
+            <LockKeyhole size={18} aria-hidden="true" />
             {pageText.loginButtonLabel}
           </button>
           {status ? <p className="loginStatus" role="status">{status}</p> : null}
         </form>
 
-        <Link className="loginBackHome" href="/">← Back Home</Link>
-        </div>
-      </main>
-      <Footer brandData={brand} footerData={footer} />
-    </>
+        <Link className="loginBackHome" href="/">
+          <ArrowLeft size={17} aria-hidden="true" />
+          Back Home
+        </Link>
+      </section>
+    </main>
   );
 }
 
