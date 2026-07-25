@@ -9920,6 +9920,40 @@ html {
   }
 }
 
+/* Menu section cards need enough room for Open, Edit, and Delete actions. */
+.menuCatalogueGrid {
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+}
+
+.menuCatalogueCard .ui-card-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.menuOpenSectionButton {
+  width: 100%;
+}
+
+.menuCatalogueCardTools {
+  flex: 0 0 auto;
+}
+
+.adminShadcnDialogForm .imageControl.ui-card img {
+  height: 190px;
+}
+
+@media (max-width: 800px) {
+  .menuCatalogueGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .menuCatalogueCard .ui-card-footer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 800px) {
   .adminMain {
     padding: 0 16px 40px;
@@ -10018,7 +10052,7 @@ html {
     flex-direction: column;
   }
 }
-
+  
 /* Final placement guard: sidebar left, workspace content right. */
 @media (min-width: 1051px) {
   .adminShell {

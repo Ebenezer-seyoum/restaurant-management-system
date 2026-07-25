@@ -564,7 +564,7 @@ export default function AdminDashboardClient() {
               name,
               price,
               description: menuProductModal.description.trim(),
-              image: menuProductModal.image || brandImage,
+              image: menuProductModal.image || "",
               isActive: true
             }
           ];
@@ -611,7 +611,7 @@ export default function AdminDashboardClient() {
                   ...category,
                   name: menuSectionModal.name.trim(),
                   description: menuSectionModal.description.trim(),
-                  image: menuSectionModal.image || brandImage,
+                  image: menuSectionModal.image || "",
                   menuSide: menuSectionModal.menuSide,
                   parentId: root?.id || menuSectionModal.menuSide,
                   isActive: menuSectionModal.isActive
@@ -625,7 +625,7 @@ export default function AdminDashboardClient() {
               parentId: root?.id || menuSectionModal.menuSide,
               name: menuSectionModal.name.trim(),
               description: menuSectionModal.description.trim(),
-              image: menuSectionModal.image || brandImage,
+              image: menuSectionModal.image || "",
               menuSide: menuSectionModal.menuSide,
               isActive: true
             }
@@ -2343,7 +2343,9 @@ export default function AdminDashboardClient() {
                   <DialogHeader>
                     <p className="eyebrow">{menuSectionModal.mode === "edit" ? "Edit section" : "New section"}</p>
                     <DialogTitle>{menuSectionModal.mode === "edit" ? menuSectionModal.name : "Add menu section"}</DialogTitle>
-                    <DialogDescription>Sections are presented as clean cards, without decorative catalogue images.</DialogDescription>
+                    <DialogDescription>
+                      Add a section image to use as the fallback whenever a product does not have its own image.
+                    </DialogDescription>
                   </DialogHeader>
                 <div className="adminModalFields">
                   <div className="ui-field">
@@ -2360,6 +2362,14 @@ export default function AdminDashboardClient() {
                   <div className="ui-field wideField">
                     <Label htmlFor="section-description">Description</Label>
                     <Textarea id="section-description" value={menuSectionModal.description} onChange={(event) => setMenuSectionModal((current) => ({ ...current, description: event.target.value }))} />
+                  </div>
+                  <div className="wideField">
+                    <ImageControl
+                      label="Section fallback image"
+                      value={menuSectionModal.image}
+                      onChange={(value) => setMenuSectionModal((current) => ({ ...current, image: value }))}
+                      onUpload={uploadAdminImage}
+                    />
                   </div>
                 </div>
                   <DialogFooter>

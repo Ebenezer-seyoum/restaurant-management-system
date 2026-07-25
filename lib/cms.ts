@@ -252,7 +252,7 @@ export async function getPublicContent() {
         name: item.name,
         description: item.description,
         price: Number(item.price),
-        image: item.image_url || brandImage,
+        image: item.image_url || item.image || "",
         isActive: item.is_available !== false
       })),
       gallery: (gallery || []).map((image) => ({

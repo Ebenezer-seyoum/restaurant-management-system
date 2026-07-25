@@ -12,6 +12,17 @@ const statusFlow = {
   cancelled: { label: "Cancelled", icon: "×" }
 };
 const statuses = Object.keys(statusFlow);
+const legacyProductImagePlaceholders = new Set([
+  "/logo.png",
+  "/uploads/house/menu-board-reference.jpg"
+]);
+
+function resolvedMenuImage(item, section) {
+  const productImage = String(item?.image || "").trim();
+  const sectionImage = String(section?.image || "").trim();
+  const hasRealProductImage = productImage && !legacyProductImagePlaceholders.has(productImage);
+  return hasRealProductImage ? productImage : sectionImage || productImage || "/logo.png";
+}
 
 function orderLines(order) {
   return order.order_items || order.items || [];
@@ -124,15 +135,16 @@ export default function OrdersClient() {
     statuses.map((status) => [status, orders.filter((order) => order.status === status).length])
   );
 
-  function add(item) {
+  function add(item, section) {
+    const orderItem = { ...item, image: resolvedMenuImage(item, section) };
     setCart((current) =>
-      current.some((line) => line.id === item.id)
+      current.some((line) => line.id === orderItem.id)
         ? current.map((line) =>
-            line.id === item.id ? { ...line, quantity: line.quantity + 1 } : line
+            line.id === orderItem.id ? { ...line, quantity: line.quantity + 1 } : line
           )
-        : [...current, { ...item, quantity: 1 }]
+        : [...current, { ...orderItem, quantity: 1 }]
     );
-    setMessage(`${item.name} added to Table ${table}.`);
+    setMessage(`${orderItem.name} added to Table ${table}.`);
   }
 
   function change(id, delta) {
@@ -290,18 +302,18 @@ export default function OrdersClient() {
                   <article className="waiterItemCard" key={item.id}>
                     <button
                       className="waiterItemImageButton"
-                      onClick={() => add(item)}
+                      onClick={() => add(item, section)}
                       type="button"
                       aria-label={`Add ${item.name}`}
                     >
-                      <img src={item.image || section.image || "/logo.png"} alt="" />
+                      <img src={resolvedMenuImage(item, section)} alt="" />
                     </button>
                     <div className="waiterItemInfo">
                       <h3>{item.name}</h3>
                       <p>{item.description || "Freshly prepared at EMRAKEL."}</p>
                       <div>
                         <strong>{money(item.price)}</strong>
-                        <button className="waiterAddButton" onClick={() => add(item)} type="button">
+                        <button className="waiterAddButton" onClick={() => add(item, section)} type="button">
                           Add
                         </button>
                       </div>
