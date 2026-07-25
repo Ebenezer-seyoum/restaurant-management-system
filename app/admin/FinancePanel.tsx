@@ -2,6 +2,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Download, Plus, ReceiptText, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const paymentMethods = ["cash", "bank", "telebirr"];
 
@@ -178,15 +184,15 @@ export default function FinancePanel({ reportOnly = false }) {
 
   return (
     <div className="financeWorkspace">
-      <section className="financeToolbar panel">
+      <Card className="financeToolbar">
         <div className="financeToolbarTitle">
           <p className="eyebrow">{reportOnly ? "Business reporting" : "Owner finance control"}</p>
           <h2>{reportOnly ? "Profit and performance report" : "Income and expense management"}</h2>
           <p>Finished waiter orders become income automatically. Add operating expenses manually.</p>
         </div>
-        <button className="button buttonLine compact" type="button" onClick={exportCsv}>
-          Export CSV
-        </button>
+        <Button variant="outline" size="sm" type="button" onClick={exportCsv}>
+          <Download size={15} /> Export CSV
+        </Button>
         <div className="financePresets" aria-label="Date range presets">
           {[
             ["today", "Today"],
@@ -194,15 +200,15 @@ export default function FinancePanel({ reportOnly = false }) {
             ["month", "This month"],
             ["all", "All time"]
           ].map(([id, label]) => (
-            <button className={preset === id ? "active" : ""} key={id} type="button" onClick={() => applyPreset(id)}>
+            <Button variant={preset === id ? "default" : "outline"} size="sm" className={preset === id ? "active" : ""} key={id} type="button" onClick={() => applyPreset(id)}>
               {label}
-            </button>
+            </Button>
           ))}
         </div>
         <div className="financeFilterGrid">
           <label>
             From
-            <input
+            <Input
               type="date"
               value={filters.from}
               onChange={(event) => {
@@ -213,7 +219,7 @@ export default function FinancePanel({ reportOnly = false }) {
           </label>
           <label>
             To
-            <input
+            <Input
               type="date"
               value={filters.to}
               onChange={(event) => {
@@ -239,41 +245,46 @@ export default function FinancePanel({ reportOnly = false }) {
           </label>
           <label className="financeSearch">
             Search
-            <input
+            <Input
               value={filters.search}
               onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
               placeholder="Description or payment"
             />
           </label>
         </div>
-      </section>
+      </Card>
 
       <section className="financeMetricGrid">
-        <article className="financeMetric income">
+        <Card className="financeMetric income">
+          <div className="financeMetricIcon"><TrendingUp size={18} /></div>
           <span>Income</span>
           <strong>{money(data.totals?.income)}</strong>
           <small>Finished restaurant orders</small>
-        </article>
-        <article className="financeMetric expense">
+        </Card>
+        <Card className="financeMetric expense">
+          <div className="financeMetricIcon"><TrendingDown size={18} /></div>
           <span>Expenses</span>
           <strong>{money(data.totals?.expenses)}</strong>
           <small>Active owner-entered spending</small>
-        </article>
-        <article className={`financeMetric profit ${Number(data.totals?.profit) < 0 ? "negative" : ""}`}>
+        </Card>
+        <Card className={`financeMetric profit ${Number(data.totals?.profit) < 0 ? "negative" : ""}`}>
+          <div className="financeMetricIcon"><WalletCards size={18} /></div>
           <span>Net profit</span>
           <strong>{money(data.totals?.profit)}</strong>
           <small>Income minus expenses</small>
-        </article>
-        <article className="financeMetric neutral">
+        </Card>
+        <Card className="financeMetric neutral">
+          <div className="financeMetricIcon"><ReceiptText size={18} /></div>
           <span>Transactions</span>
           <strong>{Number(data.totals?.transactions || 0).toLocaleString()}</strong>
           <small>Matching current filters</small>
-        </article>
+        </Card>
       </section>
 
       {!reportOnly ? (
         <section className="financeEntryGrid">
-          <form className="panel expenseEntryCard" onSubmit={addExpense}>
+          <Card className="expenseEntryCard">
+            <form onSubmit={addExpense}>
             <div>
               <p className="eyebrow">New spending</p>
               <h2>Add daily expense</h2>
@@ -282,7 +293,7 @@ export default function FinancePanel({ reportOnly = false }) {
             <div className="expenseEntryFields">
               <label>
                 Description
-                <input
+                <Input
                   required
                   value={form.description}
                   placeholder="TV maintenance"
@@ -291,7 +302,7 @@ export default function FinancePanel({ reportOnly = false }) {
               </label>
               <label>
                 Amount (ETB)
-                <input
+                <Input
                   min="0.01"
                   step="0.01"
                   required
@@ -303,7 +314,7 @@ export default function FinancePanel({ reportOnly = false }) {
               </label>
               <label>
                 Expense date
-                <input
+                <Input
                   required
                   type="date"
                   value={form.expense_date}
@@ -321,17 +332,19 @@ export default function FinancePanel({ reportOnly = false }) {
               </label>
               <label>
                 Notes
-                <input
+                <Input
                   value={form.notes}
                   placeholder="Optional details"
                   onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
                 />
               </label>
             </div>
-            <button className="button buttonGold" type="submit">Save expense</button>
-          </form>
+            <Button variant="gold" type="submit"><Plus size={16} /> Save expense</Button>
+            </form>
+          </Card>
 
-          <article className="panel financeSnapshot">
+          <Card className="financeSnapshot">
+            <CardContent>
             <p className="eyebrow">Recent spending</p>
             <h2>Latest expenses</h2>
             {(data.expenses || []).length ? (
@@ -344,12 +357,14 @@ export default function FinancePanel({ reportOnly = false }) {
                 ))}
               </div>
             ) : <p className="mutedText">No expenses match this period.</p>}
-          </article>
+            </CardContent>
+          </Card>
         </section>
       ) : null}
 
       <section className="financeReportGrid">
-        <article className="panel financeChartCard">
+        <Card className="financeChartCard">
+          <CardContent>
           <div className="financeCardHeading">
             <div>
               <p className="eyebrow">Daily movement</p>
@@ -371,9 +386,11 @@ export default function FinancePanel({ reportOnly = false }) {
             </div>
           ) : <p className="mutedText">Finish orders or add expenses to see the chart.</p>}
           <div className="financeLegend"><span><i className="incomeDot" /> Income</span><span><i className="expenseDot" /> Expenses</span></div>
-        </article>
+          </CardContent>
+        </Card>
 
-        <article className="panel bestSellerCard">
+        <Card className="bestSellerCard">
+          <CardContent>
           <div className="financeCardHeading">
             <div>
               <p className="eyebrow">Menu performance</p>
@@ -391,10 +408,11 @@ export default function FinancePanel({ reportOnly = false }) {
               ))}
             </div>
           ) : <p className="mutedText">Finished orders will show best-selling items here.</p>}
-        </article>
+          </CardContent>
+        </Card>
       </section>
 
-      <section className="panel financeTransactions">
+      <Card className="financeTransactions">
         <div className="financeCardHeading">
           <div>
             <p className="eyebrow">Detailed ledger</p>
@@ -418,7 +436,7 @@ export default function FinancePanel({ reportOnly = false }) {
             <tbody>
               {rows.length ? rows.map((row) => (
                 <tr key={`${row.kind}-${row.id}`}>
-                  <td><span className={`transactionBadge ${row.kind.toLowerCase()}`}>{row.kind}</span></td>
+                  <td><Badge variant={row.kind === "Income" ? "success" : "destructive"}>{row.kind}</Badge></td>
                   <td>{dateLabel(row.date)}</td>
                   <td><strong>{row.description}</strong>{row.notes ? <small>{row.notes}</small> : null}</td>
                   <td className="capitalize">{row.payment_method}</td>
@@ -426,7 +444,7 @@ export default function FinancePanel({ reportOnly = false }) {
                     {row.kind === "Income" ? "+" : "-"}{money(row.amount)}
                   </td>
                   {!reportOnly ? (
-                    <td>{row.kind === "Expense" ? <button className="voidExpenseButton" type="button" onClick={() => voidExpense(row.id)}>Void</button> : null}</td>
+                    <td>{row.kind === "Expense" ? <Button variant="destructive" size="sm" type="button" onClick={() => voidExpense(row.id)}>Void</Button> : null}</td>
                   ) : null}
                 </tr>
               )) : (
@@ -435,7 +453,7 @@ export default function FinancePanel({ reportOnly = false }) {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }
