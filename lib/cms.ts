@@ -22,6 +22,11 @@ import {
 import { getSupabaseServer } from "@/lib/supabase";
 import { isAdminSession } from "@/lib/auth";
 import { readWebsiteDataFromPostgres } from "@/lib/restaurant-db";
+import {
+  effectiveProductAvailability,
+  effectiveSectionAvailability,
+  menuAvailabilityStatus
+} from "@/lib/menu-availability";
 
 const dataDir = path.join(process.cwd(), "data");
 const dataFile = path.join(dataDir, "admin-data.json");
@@ -91,19 +96,27 @@ function normalizeSeo(seo = {}) {
 function withIds(state) {
   const defaultCategoryById = Object.fromEntries(defaultState.categories.map((category) => [category.id, category]));
   const categories = state?.categories?.length
-    ? state.categories.map((category) => ({
-        ...(defaultCategoryById[category.id] || {}),
-        ...category,
-        image: category.image || defaultCategoryById[category.id]?.image || "",
-        menuSide: category.menuSide || defaultCategoryById[category.id]?.menuSide || inferMenuSide(category),
-        isActive: category.isActive !== false
-      }))
+    ? state.categories.map((category) => {
+        const availabilityStatus = menuAvailabilityStatus(category);
+        return {
+          ...(defaultCategoryById[category.id] || {}),
+          ...category,
+          image: category.image || defaultCategoryById[category.id]?.image || "",
+          menuSide: category.menuSide || defaultCategoryById[category.id]?.menuSide || inferMenuSide(category),
+          availabilityStatus,
+          isActive: availabilityStatus !== "hidden"
+        };
+      })
     : defaultState.categories;
   const items = state?.items?.length
-    ? state.items.map((item) => ({
-        ...item,
-        isActive: item.isActive !== false
-      }))
+    ? state.items.map((item) => {
+        const availabilityStatus = menuAvailabilityStatus(item);
+        return {
+          ...item,
+          availabilityStatus,
+          isActive: availabilityStatus !== "hidden"
+        };
+      })
     : defaultState.items;
 
   return {
@@ -167,14 +180,25 @@ export function newId(prefix) {
 }
 
 function publicState(state) {
+  const categories = state.categories || [];
   const activeCategoryIds = new Set(
-    (state.categories || []).filter((category) => category.isActive !== false).map((category) => category.id)
+    categories
+      .filter((category) => effectiveSectionAvailability(category, categories) !== "hidden")
+      .map((category) => category.id)
   );
 
   return {
     ...state,
-    categories: (state.categories || []).filter((category) => category.isActive !== false),
-    items: (state.items || []).filter((item) => item.isActive !== false && activeCategoryIds.has(item.category)),
+    categories: categories.filter(
+      (category) => effectiveSectionAvailability(category, categories) !== "hidden"
+    ),
+    items: (state.items || []).filter((item) => {
+      const section = categories.find((category) => category.id === item.category);
+      return (
+        activeCategoryIds.has(item.category) &&
+        effectiveProductAvailability(item, section, categories) !== "hidden"
+      );
+    }),
     source: "local"
   };
 }
@@ -244,6 +268,10 @@ export async function getPublicContent() {
         description: category.description || "",
         image: category.image_url || category.image || "",
         menuSide: category.menu_side || category.menuSide || inferMenuSide(category),
+        availabilityStatus: menuAvailabilityStatus({
+          availability_status: category.availability_status,
+          isActive: category.is_active !== false
+        }),
         isActive: category.is_active !== false
       })),
       items: (items || []).map((item) => ({
@@ -253,6 +281,10 @@ export async function getPublicContent() {
         description: item.description,
         price: Number(item.price),
         image: item.image_url || item.image || "",
+        availabilityStatus: menuAvailabilityStatus({
+          availability_status: item.availability_status,
+          isActive: item.is_available !== false
+        }),
         isActive: item.is_available !== false
       })),
       gallery: (gallery || []).map((image) => ({

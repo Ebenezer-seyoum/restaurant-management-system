@@ -9920,6 +9920,1373 @@ html {
   }
 }
 
+/* Shadcn waiter ordering workspace */
+.ui-button-success {
+  border-color: #15803d;
+  background: linear-gradient(135deg, #15803d, #22a447);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(21, 128, 61, 0.2);
+}
+
+.ui-button-success:hover {
+  border-color: #116b34;
+  background: linear-gradient(135deg, #116b34, #198c3c);
+}
+
+.ui-scroll-area {
+  position: relative;
+  overflow: hidden;
+}
+
+.ui-scroll-area-viewport {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.ui-scroll-area-scrollbar {
+  display: flex;
+  touch-action: none;
+  user-select: none;
+  padding: 2px;
+  transition: background 150ms ease;
+}
+
+.ui-scroll-area-scrollbar-vertical {
+  width: 9px;
+  border-left: 1px solid transparent;
+}
+
+.ui-scroll-area-scrollbar-horizontal {
+  height: 9px;
+  flex-direction: column;
+  border-top: 1px solid transparent;
+}
+
+.ui-scroll-area-thumb {
+  position: relative;
+  flex: 1;
+  border-radius: 999px;
+  background: #c9d3e1;
+}
+
+.waiterShadcnWorkspace {
+  min-height: 100vh;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 5% 0%, rgba(246, 168, 23, 0.13), transparent 28%),
+    radial-gradient(circle at 95% 5%, rgba(34, 65, 115, 0.1), transparent 24%),
+    #f4f7fb;
+  color: #12203d;
+}
+
+.waiterShadcnTopbar {
+  max-width: 1800px;
+  min-height: 104px;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(230px, auto) 210px auto;
+  align-items: center;
+  gap: 28px;
+  margin: 0 auto 18px;
+  padding: 18px 24px;
+  overflow: visible;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(246, 168, 23, 0.13), transparent 30%),
+    linear-gradient(135deg, #0b1427, #12233f);
+  color: #fff;
+  box-shadow: 0 20px 50px rgba(11, 20, 39, 0.2);
+}
+
+.waiterShadcnTopbar .waiterBrand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.waiterShadcnTopbar .waiterBrand img {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  border: 2px solid rgba(246, 168, 23, 0.9);
+  border-radius: 18px;
+  object-fit: cover;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+}
+
+.waiterShadcnTopbar .waiterBrand strong {
+  display: block;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.waiterShadcnTopbar .waiterBrand small {
+  display: block;
+  margin-top: 4px;
+  color: #f6c75f;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.waiterShadcnTopbar .waiterPageTitle {
+  padding-left: 28px;
+  border-left: 1px solid rgba(255, 255, 255, 0.17);
+}
+
+.waiterShadcnTopbar .waiterPageTitle span {
+  display: block;
+  margin-bottom: 3px;
+  color: #f6a817;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.waiterShadcnTopbar .waiterPageTitle h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(24px, 2.4vw, 36px);
+  letter-spacing: -0.04em;
+}
+
+.waiterTableControl {
+  display: grid;
+  gap: 7px;
+}
+
+.waiterShadcnTopbar .waiterTableControl .ui-label {
+  color: #aebbd0;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.waiterShadcnTopbar .waiterTableControl .ui-select-trigger {
+  min-height: 48px;
+  border-color: rgba(255, 255, 255, 0.17);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.waiterLiveBadge {
+  min-height: 42px;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.waiterShadcnLayout {
+  max-width: 1800px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(430px, 0.78fr);
+  gap: 18px;
+  align-items: start;
+  margin: 0 auto;
+}
+
+.waiterShadcnMenu,
+.waiterShadcnSidePanel > .ui-card {
+  border: 1px solid #e0e7f0;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.97);
+  color: #12203d;
+  box-shadow: 0 16px 42px rgba(25, 46, 78, 0.08);
+}
+
+.waiterShadcnMenu {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.waiterShadcnMenu .waiterMenuToolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 370px);
+  gap: 14px;
+  align-items: center;
+  padding: 18px;
+  border-bottom: 1px solid #e7edf4;
+  background: #fbfcfe;
+}
+
+.waiterCategoryTabs {
+  min-width: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  overflow-x: auto;
+}
+
+.waiterCategoryTabs .ui-tabs-list {
+  width: max-content;
+  min-width: 100%;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 5px;
+  border-radius: 13px;
+  background: #edf2f8;
+}
+
+.waiterCategoryTabs .ui-tabs-trigger {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 9px;
+  padding: 0 16px;
+  background: transparent;
+  color: #68758c;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.waiterCategoryTabs .ui-tabs-trigger[data-state="active"] {
+  background: #12233f;
+  color: #fff;
+  box-shadow: 0 7px 16px rgba(18, 35, 63, 0.18);
+}
+
+.waiterShadcnMenu .waiterSearch {
+  min-width: 0;
+  display: block;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.waiterShadcnMenu .waiterSearch .ui-input {
+  min-height: 50px;
+  border-color: #dce4ee;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.waiterShadcnMenu .waiterSearch > svg {
+  color: #7b879b;
+}
+
+.waiterMenuContent {
+  padding: 4px 20px 24px;
+}
+
+.waiterShadcnWorkspace .waiterMenuSection {
+  margin-top: 24px;
+}
+
+.waiterShadcnWorkspace .waiterSectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 13px;
+  padding: 0 2px;
+  border: 0;
+}
+
+.waiterShadcnWorkspace .waiterSectionHeading > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.waiterShadcnWorkspace .waiterSectionHeading > div > div {
+  display: block;
+}
+
+.waiterShadcnWorkspace .waiterSectionIcon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: #fff3d7;
+  color: #b77b08;
+}
+
+.waiterShadcnWorkspace .waiterSectionHeading h2 {
+  margin: 0;
+  color: #12203d;
+  font-size: 21px;
+}
+
+.waiterShadcnWorkspace .waiterSectionHeading p {
+  max-width: 680px;
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: #7c899d;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.waiterShadcnWorkspace .waiterItemGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.waiterShadcnWorkspace .waiterItemCard {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e1e7ef;
+  border-radius: 16px;
+  background: #fff;
+  color: #12203d;
+  box-shadow: 0 8px 22px rgba(26, 45, 75, 0.06);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.waiterShadcnWorkspace .waiterItemCard:hover {
+  border-color: rgba(246, 168, 23, 0.65);
+  box-shadow: 0 15px 30px rgba(26, 45, 75, 0.12);
+  transform: translateY(-3px);
+}
+
+.waiterShadcnWorkspace .waiterItemImageButton {
+  position: relative;
+  width: 100%;
+  display: block;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  background: #edf1f6;
+  cursor: pointer;
+}
+
+.waiterShadcnWorkspace .waiterItemCard img {
+  width: 100%;
+  aspect-ratio: 1.28;
+  display: block;
+  object-fit: cover;
+  transition: transform 220ms ease;
+}
+
+.waiterShadcnWorkspace .waiterItemCard:hover img {
+  transform: scale(1.025);
+}
+
+.waiterImageAddHint {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(11, 20, 39, 0.9);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 850;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.waiterItemCard:hover .waiterImageAddHint,
+.waiterItemImageButton:focus-visible .waiterImageAddHint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.waiterShadcnWorkspace .waiterItemInfo {
+  min-height: 148px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+}
+
+.waiterShadcnWorkspace .waiterItemInfo > div:first-child {
+  display: block;
+}
+
+.waiterShadcnWorkspace .waiterItemInfo h3 {
+  min-height: auto;
+  margin: 0;
+  color: #12203d;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.waiterShadcnWorkspace .waiterItemInfo p {
+  min-height: 32px;
+  margin: 6px 0 0;
+  color: #7c899d;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.waiterShadcnWorkspace .waiterItemFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.waiterShadcnWorkspace .waiterItemFooter strong {
+  color: #9a6807;
+  font-size: 14px;
+}
+
+.waiterShadcnSidePanel {
+  position: sticky;
+  top: 18px;
+  max-height: calc(100vh - 36px);
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  overflow: visible;
+}
+
+.waiterShadcnSidePanel > .ui-card {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.waiterShadcnWorkspace .waiterPanelHeading,
+.waiterQueueHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px;
+  border-bottom: 1px solid #e5ebf3;
+  color: #12203d;
+}
+
+.waiterShadcnWorkspace .waiterPanelHeading > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.waiterPanelIcon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #fff2d5;
+  color: #ae7507;
+}
+
+.waiterShadcnWorkspace .waiterPanelHeading .ui-card-title,
+.waiterQueueHeader .ui-card-title {
+  color: #12203d;
+  font-size: 17px;
+}
+
+.waiterShadcnWorkspace .waiterPanelHeading .ui-card-description,
+.waiterQueueHeader .ui-card-description {
+  margin-top: 3px;
+  font-size: 11px;
+}
+
+.waiterCurrentContent {
+  padding: 0 18px;
+}
+
+.waiterCartScroll {
+  height: min(260px, 28vh);
+  min-height: 120px;
+}
+
+.waiterShadcnWorkspace .waiterCartList {
+  min-height: 118px;
+  padding-right: 10px;
+}
+
+.waiterShadcnWorkspace .waiterCartLine {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr) 34px;
+  gap: 8px 10px;
+  align-items: center;
+  padding: 12px 1px;
+  border-bottom: 1px solid #e9eef4;
+}
+
+.waiterShadcnWorkspace .waiterCartLine > img {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  width: 50px;
+  height: 50px;
+  border: 1px solid #e3e8ef;
+  border-radius: 11px;
+  object-fit: cover;
+}
+
+.waiterShadcnWorkspace .waiterCartName {
+  min-width: 0;
+}
+
+.waiterShadcnWorkspace .waiterCartName strong {
+  display: block;
+  overflow: hidden;
+  color: #172540;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.waiterShadcnWorkspace .waiterCartName span {
+  display: block;
+  margin-top: 3px;
+  color: #8490a3;
+  font-size: 10px;
+}
+
+.waiterRemoveButton {
+  width: 32px;
+  min-height: 32px;
+  border-radius: 9px;
+  color: #dc3d48;
+}
+
+.waiterRemoveButton:hover {
+  background: #fff0f1;
+  color: #b91c2b;
+}
+
+.waiterCartControls {
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.waiterShadcnWorkspace .waiterQuantity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.waiterShadcnWorkspace .waiterQuantity .ui-button {
+  width: 28px;
+  min-height: 28px;
+  border-radius: 8px;
+  padding: 0;
+}
+
+.waiterShadcnWorkspace .waiterQuantity b {
+  min-width: 20px;
+  color: #12203d;
+  font-size: 12px;
+  text-align: center;
+}
+
+.waiterShadcnWorkspace .waiterLineTotal {
+  color: #12203d;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.waiterShadcnWorkspace .waiterEmpty {
+  min-height: 145px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  color: #8793a5;
+  text-align: center;
+}
+
+.waiterShadcnWorkspace .waiterEmpty > svg {
+  margin-bottom: 2px;
+  color: #d59a24;
+}
+
+.waiterShadcnWorkspace .waiterEmpty strong {
+  color: #4d5a70;
+  font-size: 13px;
+}
+
+.waiterShadcnWorkspace .waiterEmpty p {
+  margin: 0;
+  font-size: 10px;
+}
+
+.waiterOrderTotals {
+  padding-top: 5px;
+}
+
+.waiterShadcnWorkspace .waiterSubtotal,
+.waiterShadcnWorkspace .waiterTotal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.waiterShadcnWorkspace .waiterSubtotal {
+  margin: 0;
+  padding: 12px 0 5px;
+  border: 0;
+  color: #7a8799;
+  font-size: 11px;
+}
+
+.waiterShadcnWorkspace .waiterTotal {
+  padding: 6px 0 13px;
+  color: #12203d;
+  font-size: 18px;
+}
+
+.waiterSubmitFooter {
+  display: grid;
+  gap: 8px;
+  padding: 0 18px 18px;
+}
+
+.waiterShadcnWorkspace .waiterSubmitButton {
+  width: 100%;
+  min-height: 51px;
+  border-radius: 12px;
+  padding: 0 16px;
+}
+
+.waiterShadcnWorkspace .waiterMessage {
+  margin: 0;
+  color: #637188;
+  font-size: 10px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.waiterQueueHeader {
+  display: grid;
+  padding-bottom: 13px;
+}
+
+.waiterQueueHeader > div:first-child {
+  display: block;
+}
+
+.waiterQueueTabs .ui-tabs-content {
+  margin: 0;
+}
+
+.waiterShadcnWorkspace .waiterStatusTabs {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  overflow: visible;
+  padding: 5px;
+  border: 0;
+  border-radius: 12px;
+  background: #edf2f8;
+}
+
+.waiterShadcnWorkspace .waiterStatusTabs .ui-tabs-trigger {
+  min-width: 0;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 7px;
+  background: transparent;
+  color: #718096;
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.waiterShadcnWorkspace .waiterStatusTabs .ui-tabs-trigger > span {
+  min-width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #dbe3ed;
+  color: #56647a;
+  font-size: 9px;
+}
+
+.waiterShadcnWorkspace .waiterStatusTabs .ui-tabs-trigger[data-state="active"] {
+  background: #fff;
+  color: #12203d;
+  box-shadow: 0 5px 13px rgba(18, 32, 61, 0.1);
+}
+
+.waiterQueueScroll {
+  height: min(475px, 47vh);
+  min-height: 255px;
+}
+
+.waiterShadcnWorkspace .waiterQueueList {
+  display: grid;
+  gap: 10px;
+  padding: 12px 10px 14px 14px;
+}
+
+.waiterShadcnWorkspace .waiterQueueCard {
+  display: block;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #e1e7ef;
+  border-radius: 14px;
+  background: #fff;
+  color: #12203d;
+  box-shadow: 0 6px 16px rgba(24, 42, 70, 0.045);
+}
+
+.waiterQueueCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.waiterQueueIdentity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.waiterShadcnWorkspace .waiterQueueNumber {
+  min-height: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: #fff1d2;
+  color: #a26c05;
+}
+
+.waiterShadcnWorkspace .waiterQueueNumber b {
+  color: inherit;
+  font-size: 12px;
+}
+
+.waiterQueueIdentity > div > strong {
+  display: block;
+  color: #12203d;
+  font-size: 12px;
+}
+
+.waiterQueueIdentity small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  color: #8995a6;
+  font-size: 9px;
+}
+
+.waiterQueueCardContent {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.waiterQueueItems {
+  display: grid;
+  gap: 6px;
+}
+
+.waiterQueueItems > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: #f5f8fb;
+  color: #43516a;
+  font-size: 11px;
+}
+
+.waiterQueueItems > div strong {
+  color: #12203d;
+}
+
+.waiterQueueMeta {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 9px;
+}
+
+.waiterQueueMeta > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.waiterQueueMeta span {
+  color: #8894a6;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.waiterQueueMeta strong {
+  overflow: hidden;
+  color: #12203d;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.waiterOrderNote,
+.waiterCancelReason {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  border-radius: 8px;
+  padding: 8px 9px;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.waiterOrderNote {
+  background: #eef5ff;
+  color: #446184;
+}
+
+.waiterCancelReason {
+  background: #fff1f1;
+  color: #a63b44;
+}
+
+.waiterOrderNote svg,
+.waiterCancelReason svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.waiterShadcnWorkspace .waiterOrderActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.waiterShadcnWorkspace .waiterOrderActions .ui-button {
+  min-height: 39px;
+}
+
+.waiterResolution {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 12px;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.waiterResolution.finished {
+  background: #eaf8ef;
+  color: #257442;
+}
+
+.waiterResolution.cancelled {
+  background: #fff0f1;
+  color: #b53a46;
+}
+
+.waiterShadcnWorkspace .waiterEmptyQueue {
+  min-height: 235px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  padding: 28px 14px;
+  color: #8a96a8;
+  text-align: center;
+}
+
+.waiterShadcnWorkspace .waiterEmptyQueue svg {
+  color: #b1bdcc;
+}
+
+.waiterShadcnWorkspace .waiterEmptyQueue strong {
+  color: #526078;
+  font-size: 12px;
+}
+
+.waiterShadcnWorkspace .waiterEmptyQueue span {
+  font-size: 10px;
+}
+
+.waiterShadcnWorkspace .waiterNoResults {
+  min-height: 420px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  color: #8793a5;
+}
+
+.waiterShadcnWorkspace .waiterNoResults strong {
+  color: #47556c;
+}
+
+.waiterDecisionDialog {
+  width: min(520px, calc(100vw - 28px));
+  overflow: hidden;
+  border: 1px solid #e1e7ef;
+  border-radius: 20px;
+  padding: 0;
+  background: #fff;
+  box-shadow: 0 30px 90px rgba(7, 18, 37, 0.32);
+}
+
+.waiterDecisionDialog form {
+  display: grid;
+}
+
+.waiterDecisionHeader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 24px 24px 18px;
+  text-align: left;
+}
+
+.waiterDecisionIcon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+}
+
+.waiterDecisionIcon.finish {
+  background: #e9f8ef;
+  color: #16803d;
+}
+
+.waiterDecisionIcon.cancel {
+  background: #fff0f1;
+  color: #c22f3e;
+}
+
+.waiterDecisionHeader .eyebrow {
+  margin: 0 0 3px;
+  color: #8a96a8;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.waiterDecisionHeader .ui-dialog-title {
+  color: #12203d;
+  font-size: 22px;
+}
+
+.waiterDecisionHeader .ui-dialog-description {
+  margin-top: 6px;
+  color: #748198;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.waiterDialogSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 24px;
+  border: 1px solid #cdebd8;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #f1fbf5;
+  color: #34714a;
+}
+
+.waiterDialogSummary.cancel {
+  border-color: #f2cdd1;
+  background: #fff5f5;
+  color: #a33a44;
+}
+
+.waiterDialogSummary span {
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.waiterDialogSummary strong {
+  color: #12203d;
+  font-size: 15px;
+}
+
+.waiterDialogFields {
+  display: grid;
+  gap: 15px;
+  padding: 19px 24px 22px;
+}
+
+.waiterDialogFields .ui-field {
+  display: grid;
+  gap: 7px;
+}
+
+.waiterDialogFields .ui-select-trigger,
+.waiterDialogFields .ui-textarea {
+  border-radius: 11px;
+}
+
+.waiterDialogFields .ui-textarea {
+  min-height: 102px;
+}
+
+.waiterOptional {
+  margin-left: 5px;
+  color: #98a3b3;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.waiterDecisionDialog .ui-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 16px 24px 22px;
+  border-top: 1px solid #e7ecf3;
+  background: #f8fafc;
+}
+
+@media (max-width: 1450px) {
+  .waiterShadcnLayout {
+    grid-template-columns: minmax(0, 1fr) 440px;
+  }
+
+  .waiterShadcnWorkspace .waiterItemGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1120px) {
+  .waiterShadcnTopbar {
+    grid-template-columns: minmax(240px, 1fr) 210px auto;
+  }
+
+  .waiterShadcnTopbar .waiterPageTitle {
+    display: none;
+  }
+
+  .waiterShadcnLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .waiterShadcnSidePanel {
+    position: static;
+    max-height: none;
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  }
+
+  .waiterCartScroll,
+  .waiterQueueScroll {
+    height: 420px;
+    max-height: 50vh;
+  }
+}
+
+@media (max-width: 800px) {
+  .waiterShadcnWorkspace {
+    padding: 10px;
+  }
+
+  .waiterShadcnTopbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 15px;
+    border-radius: 17px;
+  }
+
+  .waiterTableControl {
+    grid-column: 1 / -1;
+  }
+
+  .waiterShadcnTopbar .waiterBrand img {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+  }
+
+  .waiterShadcnTopbar .waiterBrand strong {
+    font-size: 18px;
+  }
+
+  .waiterShadcnMenu .waiterMenuToolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .waiterShadcnWorkspace .waiterItemGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .waiterShadcnSidePanel {
+    grid-template-columns: 1fr;
+  }
+
+  .waiterCartScroll,
+  .waiterQueueScroll {
+    height: auto;
+    max-height: 460px;
+  }
+}
+
+@media (max-width: 520px) {
+  .waiterShadcnWorkspace {
+    padding: 6px;
+  }
+
+  .waiterShadcnTopbar {
+    margin-bottom: 8px;
+  }
+
+  .waiterShadcnTopbar .waiterBrand small {
+    display: none;
+  }
+
+  .waiterLiveBadge {
+    min-width: 0;
+    padding: 0 10px;
+  }
+
+  .waiterShadcnLayout,
+  .waiterShadcnSidePanel {
+    gap: 8px;
+  }
+
+  .waiterShadcnMenu,
+  .waiterShadcnSidePanel > .ui-card {
+    border-radius: 14px;
+  }
+
+  .waiterMenuContent {
+    padding: 2px 10px 16px;
+  }
+
+  .waiterShadcnWorkspace .waiterSectionHeading p {
+    display: none;
+  }
+
+  .waiterShadcnWorkspace .waiterItemGrid {
+    gap: 8px;
+  }
+
+  .waiterShadcnWorkspace .waiterItemInfo {
+    min-height: 132px;
+    padding: 10px;
+  }
+
+  .waiterShadcnWorkspace .waiterItemInfo h3 {
+    font-size: 13px;
+  }
+
+  .waiterShadcnWorkspace .waiterItemInfo p {
+    min-height: 30px;
+    font-size: 9px;
+  }
+
+  .waiterShadcnWorkspace .waiterItemFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .waiterShadcnWorkspace .waiterItemFooter .ui-button {
+    width: 100%;
+  }
+
+  .waiterImageAddHint {
+    display: none;
+  }
+
+  .waiterDecisionHeader {
+    grid-template-columns: 1fr;
+  }
+
+  .waiterDecisionDialog .ui-dialog-footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Menu availability: Available, Coming Soon, and Hidden */
+.menuCatalogueCard.availability-coming_soon,
+.menuProductCard.availability-coming_soon {
+  border-color: #edc66d;
+  background: linear-gradient(145deg, #fffdf7, #fff8e8);
+}
+
+.menuCatalogueCard.availability-coming_soon .menuSectionGlyph {
+  background: linear-gradient(145deg, #9b6807, #d99a1f);
+  color: #fff8e6;
+}
+
+.menuCatalogueCard.availability-hidden,
+.menuProductCard.availability-hidden {
+  border-style: dashed;
+  background: #f7f9fc;
+  opacity: 0.78;
+}
+
+.menuProductPrice.coming_soon {
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: #fff0c5;
+  color: #966306;
+  font-size: 11px;
+}
+
+.menuStatusPill.ui-badge {
+  justify-self: start;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.menuOptionalLabel {
+  margin-left: 7px;
+  color: #8b97a8;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.menuFieldHelp {
+  display: block;
+  margin-top: 2px;
+  color: #7c899b;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.menuProductHeader .ui-badge {
+  width: max-content;
+  margin-top: 8px;
+}
+
+.menuBoardSectionTitle {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.menuBoardSectionTitle > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(240, 190, 66, 0.72);
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: rgba(240, 190, 66, 0.16);
+  color: #f1c660;
+  font-family: "Inter", "Segoe UI", sans-serif;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.drinkColumn .menuBoardSectionTitle > span {
+  border-color: rgba(72, 99, 61, 0.35);
+  background: rgba(72, 99, 61, 0.12);
+  color: #3f5c35;
+}
+
+.menuBoardShowcase.scanMenuPage .menuBoardComingSoonItem strong {
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: rgba(217, 172, 67, 0.18);
+  color: #efc45d;
+  font-family: "Inter", "Segoe UI", sans-serif;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.menuBoardShowcase.scanMenuPage .drinkColumn .menuBoardComingSoonItem strong {
+  background: rgba(72, 99, 61, 0.12);
+  color: #3e5934;
+}
+
+.menuBoardShowcase.scanMenuPage .menuBoardSection.isComingSoon {
+  border-bottom-style: dashed;
+}
+
+.waiterSectionBadges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.waiterItemCard.isComingSoon {
+  border-color: #ecd38f;
+  background: linear-gradient(145deg, #fffdf8, #fff9eb);
+}
+
+.waiterItemCard.isComingSoon .waiterItemImageButton {
+  cursor: not-allowed;
+}
+
+.waiterItemCard.isComingSoon .waiterItemImageButton img {
+  filter: saturate(0.72) contrast(0.94);
+  opacity: 0.86;
+}
+
+.waiterItemCard.isComingSoon .waiterImageAddHint.comingSoon {
+  background: rgba(146, 95, 0, 0.92);
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.waiterItemCard.isComingSoon:hover {
+  border-color: #dfb84f;
+  transform: none;
+}
+
+.waiterItemCard.isComingSoon:hover img {
+  transform: none;
+}
+
+@media (max-width: 620px) {
+  .menuBoardSectionTitle {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .menuBoardSectionTitle > span {
+    width: max-content;
+    margin: -7px 0 12px;
+  }
+
+  .waiterSectionBadges {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+}
+
 /* Menu section cards need enough room for Open, Edit, and Delete actions. */
 .menuCatalogueGrid {
   grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));

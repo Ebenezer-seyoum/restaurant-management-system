@@ -49,8 +49,31 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import FinancePanel from "./FinancePanel";
+import {
+  menuAvailabilityLabel,
+  menuAvailabilityStatus
+} from "@/lib/menu-availability";
 
 const emptyStatus = { type: "", message: "" };
+const menuAvailabilityOptions = [
+  ["available", "Available"],
+  ["coming_soon", "Coming Soon"],
+  ["hidden", "Hidden"]
+];
+
+function menuAvailabilityMeta(entry) {
+  const status = menuAvailabilityStatus(entry);
+  return {
+    status,
+    label: menuAvailabilityLabel(status),
+    variant:
+      status === "coming_soon"
+        ? "warning"
+        : status === "hidden"
+          ? "secondary"
+          : "success"
+  };
+}
 const websiteTabs = [
   ["home", "Home"],
   ["gallery", "Gallery"],
@@ -521,6 +544,7 @@ export default function AdminDashboardClient() {
   }
 
   function openProductModal(categoryId, item = null) {
+    const availabilityStatus = menuAvailabilityStatus(item);
     setMenuProductModal({
       mode: item ? "edit" : "add",
       itemId: item?.id || "",
@@ -529,7 +553,8 @@ export default function AdminDashboardClient() {
       price: item?.price ?? "",
       description: item?.description || "",
       image: item?.image || "",
-      isActive: item?.isActive !== false
+      availabilityStatus,
+      isActive: availabilityStatus !== "hidden"
     });
   }
 
@@ -537,9 +562,25 @@ export default function AdminDashboardClient() {
     event.preventDefault();
     if (!menuProductModal) return;
     const name = menuProductModal.name.trim();
-    const price = Number(menuProductModal.price);
-    if (!name || !Number.isFinite(price) || price < 0) {
-      setStatus({ type: "error", message: "Product name and a valid price are required." });
+    const availabilityStatus = menuAvailabilityStatus(menuProductModal);
+    const hasPrice =
+      menuProductModal.price !== "" &&
+      menuProductModal.price !== null &&
+      menuProductModal.price !== undefined;
+    const price = hasPrice ? Number(menuProductModal.price) : 0;
+    if (
+      !name ||
+      (availabilityStatus === "available" &&
+        (!hasPrice || !Number.isFinite(price) || price < 0)) ||
+      (hasPrice && (!Number.isFinite(price) || price < 0))
+    ) {
+      setStatus({
+        type: "error",
+        message:
+          availabilityStatus === "available"
+            ? "Product name and a valid price are required."
+            : "Enter a valid non-negative price or leave it empty."
+      });
       return;
     }
     const nextItems =
@@ -552,7 +593,8 @@ export default function AdminDashboardClient() {
                   price,
                   description: menuProductModal.description.trim(),
                   image: menuProductModal.image,
-                  isActive: menuProductModal.isActive
+                  availabilityStatus,
+                  isActive: availabilityStatus !== "hidden"
                 }
               : item
           )
@@ -565,7 +607,8 @@ export default function AdminDashboardClient() {
               price,
               description: menuProductModal.description.trim(),
               image: menuProductModal.image || "",
-              isActive: true
+              availabilityStatus,
+              isActive: availabilityStatus !== "hidden"
             }
           ];
     const saved = await persistMenu(categories, nextItems, menuProductModal.mode === "edit" ? "Product updated." : "Product added.");
@@ -585,13 +628,15 @@ export default function AdminDashboardClient() {
   }
 
   function openSectionModal(section = null) {
+    const availabilityStatus = menuAvailabilityStatus(section);
     setMenuSectionModal({
       mode: section ? "edit" : "add",
       sectionId: section?.id || "",
       name: section?.name || "",
       description: section?.description || "",
       image: section?.image || "",
-      isActive: section?.isActive !== false,
+      availabilityStatus,
+      isActive: availabilityStatus !== "hidden",
       menuSide: section?.menuSide || selectedMenuSide
     });
   }
@@ -603,6 +648,7 @@ export default function AdminDashboardClient() {
       return;
     }
     const root = mainCategories.find((category) => category.id === menuSectionModal.menuSide);
+    const availabilityStatus = menuAvailabilityStatus(menuSectionModal);
     const nextCategories =
       menuSectionModal.mode === "edit"
         ? categories.map((category) =>
@@ -614,7 +660,8 @@ export default function AdminDashboardClient() {
                   image: menuSectionModal.image || "",
                   menuSide: menuSectionModal.menuSide,
                   parentId: root?.id || menuSectionModal.menuSide,
-                  isActive: menuSectionModal.isActive
+                  availabilityStatus,
+                  isActive: availabilityStatus !== "hidden"
                 }
               : category
           )
@@ -627,7 +674,8 @@ export default function AdminDashboardClient() {
               description: menuSectionModal.description.trim(),
               image: menuSectionModal.image || "",
               menuSide: menuSectionModal.menuSide,
-              isActive: true
+              availabilityStatus,
+              isActive: availabilityStatus !== "hidden"
             }
           ];
     const saved = await persistMenu(nextCategories, items, menuSectionModal.mode === "edit" ? "Section updated." : "Section added.");
@@ -2156,14 +2204,22 @@ export default function AdminDashboardClient() {
                 <section className="menuCatalogueGrid" aria-label={`${selectedMenuSide} menu sections`}>
                   {filteredSimpleMenuSections.length ? filteredSimpleMenuSections.map((section) => {
                     const sectionItems = getCategoryItems(section.id);
-                    const activeItems = sectionItems.filter((item) => item.isActive !== false).length;
+                    const sectionAvailability = menuAvailabilityMeta(section);
+                    const activeItems =
+                      sectionAvailability.status === "available"
+                        ? sectionItems.filter(
+                            (item) =>
+                              menuAvailabilityStatus(item) === "available"
+                          ).length
+                        : 0;
                     return (
-                      <Card className="menuCatalogueCard" key={section.id}>
+                      <Card className={`menuCatalogueCard availability-${sectionAvailability.status}`} key={section.id}>
                         <CardHeader>
                           <div className="menuCatalogueCardTitle">
                             <div className="menuSectionGlyph">{String(section.name || "M").slice(0, 1).toUpperCase()}</div>
-                            <Badge variant={section.isActive === false ? "secondary" : "success"}>
-                              {section.isActive === false ? "Hidden" : "Active"}
+                            <Badge variant={sectionAvailability.variant}>
+                              {sectionAvailability.status === "coming_soon" ? <Clock3 size={13} /> : sectionAvailability.status === "hidden" ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
+                              {sectionAvailability.label}
                             </Badge>
                           </div>
                           <CardTitle>{section.name}</CardTitle>
@@ -2172,7 +2228,7 @@ export default function AdminDashboardClient() {
                         <CardContent>
                           <div className="menuCatalogueStats">
                             <span><small>Total products</small><strong>{sectionItems.length}</strong></span>
-                            <span><small>Visible now</small><strong>{activeItems}</strong></span>
+                            <span><small>Available now</small><strong>{activeItems}</strong></span>
                           </div>
                         </CardContent>
                         <CardFooter>
@@ -2226,6 +2282,9 @@ export default function AdminDashboardClient() {
                   <p className="eyebrow">Product list</p>
                   <h2>{selectedMenuSectionData.name}</h2>
                   <p>{selectedMenuSectionData.description}</p>
+                  {menuAvailabilityStatus(selectedMenuSectionData) === "coming_soon" ? (
+                    <Badge variant="warning"><Clock3 size={13} /> Entire section is Coming Soon</Badge>
+                  ) : null}
                 </div>
                 <div className="menuProductHeaderActions">
                   <Button variant="outline" size="sm" type="button" onClick={() => openSectionModal(selectedMenuSectionData)}>
@@ -2252,8 +2311,10 @@ export default function AdminDashboardClient() {
                 <Badge variant="outline">{selectedMenuProducts.length} products</Badge>
               </div>
               <div className="menuProductCards">
-                {selectedMenuProducts.length ? selectedMenuProducts.map((item) => (
-                  <Card className="menuProductCard" key={item.id}>
+                {selectedMenuProducts.length ? selectedMenuProducts.map((item) => {
+                  const itemAvailability = menuAvailabilityMeta(item);
+                  return (
+                  <Card className={`menuProductCard availability-${itemAvailability.status}`} key={item.id}>
                     <div className="menuProductIdentity">
                       <div className="menuProductGlyph"><UtensilsCrossed size={18} /></div>
                       <span>
@@ -2261,17 +2322,15 @@ export default function AdminDashboardClient() {
                         <small>{item.description || "No description added"}</small>
                       </span>
                     </div>
-                    <strong className="menuProductPrice">{Number(item.price || 0).toLocaleString()} ETB</strong>
-                    <Button
-                      variant={item.isActive === false ? "secondary" : "outline"}
-                      size="sm"
-                      className={`menuStatusPill ${item.isActive === false ? "hidden" : ""}`}
-                      type="button"
-                      onClick={() => toggleProduct(item)}
-                    >
-                      {item.isActive === false ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
-                      {item.isActive === false ? "Hidden" : "Visible"}
-                    </Button>
+                    <strong className={`menuProductPrice ${itemAvailability.status}`}>
+                      {itemAvailability.status === "coming_soon"
+                        ? "Coming Soon"
+                        : `${Number(item.price || 0).toLocaleString()} ETB`}
+                    </strong>
+                    <Badge variant={itemAvailability.variant} className="menuStatusPill">
+                      {itemAvailability.status === "coming_soon" ? <Clock3 size={14} /> : itemAvailability.status === "hidden" ? <XCircle size={14} /> : <CheckCircle2 size={14} />}
+                      {itemAvailability.label}
+                    </Badge>
                     <div className="menuRowActions">
                       <Button variant="outline" size="icon" type="button" onClick={() => openProductModal(selectedMenuSectionData.id, item)} aria-label={`Edit ${item.name}`}>
                         <Pencil aria-hidden="true" size={16} />
@@ -2281,7 +2340,8 @@ export default function AdminDashboardClient() {
                       </Button>
                     </div>
                   </Card>
-                )) : (
+                  );
+                }) : (
                   <Card className="emptyAdminState">
                     <CardContent>
                       <div className="menuEmptyIcon"><UtensilsCrossed size={24} /></div>
@@ -2316,8 +2376,48 @@ export default function AdminDashboardClient() {
                     <Input id="product-name" autoFocus required value={menuProductModal.name} onChange={(event) => setMenuProductModal((current) => ({ ...current, name: event.target.value }))} />
                   </div>
                   <div className="ui-field">
-                    <Label htmlFor="product-price">Price (ETB)</Label>
-                    <Input id="product-price" min="0" step="0.01" required type="number" value={menuProductModal.price} onChange={(event) => setMenuProductModal((current) => ({ ...current, price: event.target.value }))} />
+                    <Label htmlFor="product-availability">Availability</Label>
+                    <Select
+                      value={menuProductModal.availabilityStatus}
+                      onValueChange={(value) =>
+                        setMenuProductModal((current) => ({
+                          ...current,
+                          availabilityStatus: value,
+                          isActive: value !== "hidden"
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="product-availability">
+                        <SelectValue placeholder="Select availability">
+                          {menuAvailabilityLabel(menuAvailabilityStatus(menuProductModal))}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {menuAvailabilityOptions.map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="ui-field wideField">
+                    <Label htmlFor="product-price">
+                      Price (ETB)
+                      {menuProductModal.availabilityStatus !== "available" ? <span className="menuOptionalLabel">Optional</span> : null}
+                    </Label>
+                    <Input
+                      id="product-price"
+                      min="0"
+                      step="0.01"
+                      required={menuProductModal.availabilityStatus === "available"}
+                      disabled={menuProductModal.availabilityStatus === "coming_soon"}
+                      type="number"
+                      value={menuProductModal.price}
+                      onChange={(event) => setMenuProductModal((current) => ({ ...current, price: event.target.value }))}
+                      placeholder={menuProductModal.availabilityStatus === "coming_soon" ? "Price is hidden while Coming Soon" : "0"}
+                    />
+                    {menuProductModal.availabilityStatus === "coming_soon" ? (
+                      <small className="menuFieldHelp">The saved price is preserved, but customers and waiters will only see “Coming Soon”.</small>
+                    ) : null}
                   </div>
                   <div className="ui-field wideField">
                     <Label htmlFor="product-description">Description</Label>
@@ -2350,14 +2450,58 @@ export default function AdminDashboardClient() {
                 <div className="adminModalFields">
                   <div className="ui-field">
                     <Label htmlFor="section-name">Section name</Label>
-                    <Input id="section-name" autoFocus required value={menuSectionModal.name} onChange={(event) => setMenuSectionModal((current) => ({ ...current, name: event.target.value }))} />
+                    <Input
+                      id="section-name"
+                      autoFocus
+                      required
+                      value={menuSectionModal.name}
+                      onChange={(event) => setMenuSectionModal((current) => ({ ...current, name: event.target.value }))}
+                      placeholder={menuSectionModal.menuSide === "drinks" ? "e.g. Tea, Coffee & Milk" : "e.g. Pizza"}
+                    />
                   </div>
                   <div className="ui-field">
                     <Label htmlFor="section-side">Menu side</Label>
-                    <select id="section-side" className="ui-input" value={menuSectionModal.menuSide} onChange={(event) => setMenuSectionModal((current) => ({ ...current, menuSide: event.target.value }))}>
-                      <option value="food">Food</option>
-                      <option value="drinks">Drinks</option>
-                    </select>
+                    <Select
+                      value={menuSectionModal.menuSide}
+                      onValueChange={(value) => setMenuSectionModal((current) => ({ ...current, menuSide: value }))}
+                    >
+                      <SelectTrigger id="section-side">
+                        <SelectValue placeholder="Select menu side">
+                          {menuSectionModal.menuSide === "drinks" ? "Drinks" : "Food"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="food">Food</SelectItem>
+                        <SelectItem value="drinks">Drinks</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="ui-field wideField">
+                    <Label htmlFor="section-availability">Section availability</Label>
+                    <Select
+                      value={menuSectionModal.availabilityStatus}
+                      onValueChange={(value) =>
+                        setMenuSectionModal((current) => ({
+                          ...current,
+                          availabilityStatus: value,
+                          isActive: value !== "hidden"
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="section-availability">
+                        <SelectValue placeholder="Select availability">
+                          {menuAvailabilityLabel(menuAvailabilityStatus(menuSectionModal))}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {menuAvailabilityOptions.map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {menuSectionModal.availabilityStatus === "coming_soon" ? (
+                      <small className="menuFieldHelp">Every product in this section will display “Coming Soon” instead of its price and cannot be ordered.</small>
+                    ) : null}
                   </div>
                   <div className="ui-field wideField">
                     <Label htmlFor="section-description">Description</Label>

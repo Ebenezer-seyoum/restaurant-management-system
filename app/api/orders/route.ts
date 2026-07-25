@@ -15,6 +15,7 @@ import {
   updateOrderStatusInPostgres
 } from "@/lib/restaurant-db";
 import { getSupabaseServer } from "@/lib/supabase";
+import { effectiveProductAvailability } from "@/lib/menu-availability";
 
 export const runtime = "nodejs";
 
@@ -85,7 +86,19 @@ export async function POST(request) {
   }
 
   const content = await getPublicContent();
-  const itemById = new Map((content.items || []).map((item) => [String(item.id), item]));
+  const itemById = new Map(
+    (content.items || [])
+      .filter((item) => {
+        const section = (content.categories || []).find(
+          (category) => category.id === item.category
+        );
+        return (
+          effectiveProductAvailability(item, section, content.categories || []) ===
+          "available"
+        );
+      })
+      .map((item) => [String(item.id), item])
+  );
   const validatedItems = body.items.map((line) => {
     const item = itemById.get(String(line.menu_item_id || line.id || ""));
     const quantity = Math.max(1, Math.min(99, Number.parseInt(line.quantity, 10) || 1));
@@ -109,7 +122,7 @@ export async function POST(request) {
     waiter_name: body.waiter_name || null,
     address: body.address || null,
     notes: body.notes || null,
-    payment_method: body.payment_method || "cash",
+    payment_method: body.payment_method || null,
     status: "pending",
     total_amount: totalAmount
   };
@@ -168,23 +181,26 @@ export async function PATCH(request) {
     return badRequest("Order status must be pending, finished, or cancelled.");
   }
   const cancelReason = String(body.cancel_reason || "").trim();
-  if (nextStatus === "cancelled" && !cancelReason) {
-    return badRequest("A cancellation reason is required.");
+  const completionNote = String(body.notes || "").trim();
+  const paymentMethod = String(body.payment_method || "").trim().toLowerCase();
+  if (nextStatus === "finished" && !paymentMethod) {
+    return badRequest("Select a payment method before finishing the order.");
   }
 
   if (process.env.DATABASE_URL) {
     try {
       const session = getSessionFromRequest(request);
       const order = await updateOrderStatusInPostgres(body.id, body.status, {
-        paymentMethod: body.payment_method || null,
+        paymentMethod: paymentMethod || null,
         userId: session?.id || null,
-        cancelReason
+        cancelReason,
+        notes: completionNote
       });
       return ok({
         message: nextStatus === "finished"
           ? "Order finished and recorded as income."
           : nextStatus === "cancelled"
-            ? "Order cancelled with its reason recorded."
+            ? "Order cancelled."
             : "Order status updated.",
         order,
         source: "postgres"
@@ -210,7 +226,8 @@ export async function PATCH(request) {
         ? {
             ...order,
             status: nextStatus,
-            payment_method: body.payment_method || order.payment_method || "cash",
+            payment_method: paymentMethod || order.payment_method || null,
+            notes: nextStatus === "finished" && completionNote ? completionNote : order.notes,
             finished_at: nextStatus === "finished" ? new Date().toISOString() : order.finished_at,
             cancel_reason: nextStatus === "cancelled" ? cancelReason : order.cancel_reason,
             cancelled_at: nextStatus === "cancelled" ? new Date().toISOString() : order.cancelled_at,
@@ -229,7 +246,7 @@ export async function PATCH(request) {
               category: "food_sales",
               description: `Order ${body.id}`,
               amount: Number(completedOrder?.total_amount || 0),
-              payment_method: body.payment_method || "cash",
+              payment_method: paymentMethod,
               transaction_date: new Date().toISOString().slice(0, 10),
               created_at: new Date().toISOString()
             },
@@ -244,10 +261,11 @@ export async function PATCH(request) {
     status: nextStatus,
     updated_at: new Date().toISOString()
   };
-  if (body.payment_method) update.payment_method = body.payment_method;
+  if (paymentMethod) update.payment_method = paymentMethod;
   if (nextStatus === "finished") {
     update.finished_at = new Date().toISOString();
     update.paid_at = new Date().toISOString();
+    if (completionNote) update.notes = completionNote;
   }
   if (nextStatus === "cancelled") {
     update.cancel_reason = cancelReason;
@@ -268,7 +286,7 @@ export async function PATCH(request) {
         category: "food_sales",
         description: `Order ${data.id}`,
         amount: Number(data.total_amount || 0),
-        payment_method: body.payment_method || data.payment_method || "cash",
+        payment_method: paymentMethod || data.payment_method || "cash",
         transaction_date: new Date().toISOString().slice(0, 10)
       },
       { onConflict: "order_id", ignoreDuplicates: true }
@@ -277,7 +295,7 @@ export async function PATCH(request) {
   }
 
   return ok({
-    message: nextStatus === "cancelled" ? "Order cancelled with its reason recorded." : "Order updated.",
+    message: nextStatus === "cancelled" ? "Order cancelled." : "Order updated.",
     order: data,
     source: "supabase"
   });

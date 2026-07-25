@@ -2,16 +2,90 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  Banknote,
+  Check,
+  CheckCircle2,
+  ChefHat,
+  CircleOff,
+  Clock3,
+  Minus,
+  Plus,
+  ReceiptText,
+  Search,
+  ShoppingBasket,
+  Store,
+  Trash2,
+  Utensils,
+  Wifi,
+  WifiOff,
+  X,
+  XCircle
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { menuCategories, menuItems } from "@/lib/data";
+import {
+  effectiveProductAvailability,
+  effectiveSectionAvailability
+} from "@/lib/menu-availability";
 
 const money = (value) =>
   `${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} ETB`;
+
 const statusFlow = {
-  pending: { label: "Pending", icon: "◷" },
-  finished: { label: "Finished", icon: "✓" },
-  cancelled: { label: "Cancelled", icon: "×" }
+  pending: {
+    label: "Pending",
+    icon: Clock3,
+    badge: "warning"
+  },
+  finished: {
+    label: "Finished",
+    icon: CheckCircle2,
+    badge: "success"
+  },
+  cancelled: {
+    label: "Cancelled",
+    icon: XCircle,
+    badge: "destructive"
+  }
 };
+
 const statuses = Object.keys(statusFlow);
+const paymentOptions = [
+  { value: "cash", label: "Cash" },
+  { value: "bank", label: "Bank transfer" },
+  { value: "telebirr", label: "Telebirr" }
+];
 const legacyProductImagePlaceholders = new Set([
   "/logo.png",
   "/uploads/house/menu-board-reference.jpg"
@@ -20,8 +94,12 @@ const legacyProductImagePlaceholders = new Set([
 function resolvedMenuImage(item, section) {
   const productImage = String(item?.image || "").trim();
   const sectionImage = String(section?.image || "").trim();
-  const hasRealProductImage = productImage && !legacyProductImagePlaceholders.has(productImage);
-  return hasRealProductImage ? productImage : sectionImage || productImage || "/logo.png";
+  const hasRealProductImage =
+    productImage && !legacyProductImagePlaceholders.has(productImage);
+
+  return hasRealProductImage
+    ? productImage
+    : sectionImage || productImage || "/logo.png";
 }
 
 function orderLines(order) {
@@ -30,11 +108,21 @@ function orderLines(order) {
 
 function elapsedTime(value) {
   if (!value) return "";
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(value).getTime()) / 60_000)
+  );
   if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
   return `${hours} hr${hours === 1 ? "" : "s"} ago`;
+}
+
+function paymentLabel(value) {
+  return (
+    paymentOptions.find((item) => item.value === String(value || "").toLowerCase())
+      ?.label || "Awaiting payment"
+  );
 }
 
 export default function OrdersClient() {
@@ -45,12 +133,14 @@ export default function OrdersClient() {
   const [orders, setOrders] = useState([]);
   const [liveCategories, setLiveCategories] = useState(menuCategories);
   const [liveItems, setLiveItems] = useState(menuItems);
-  const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [actionBusy, setActionBusy] = useState("");
   const [online, setOnline] = useState(true);
+  const [finishOrder, setFinishOrder] = useState(null);
+  const [finishPayment, setFinishPayment] = useState("cash");
+  const [finishNote, setFinishNote] = useState("");
   const [cancelOrder, setCancelOrder] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
 
@@ -101,7 +191,9 @@ export default function OrdersClient() {
   const menuSections = useMemo(
     () =>
       rootCategories.flatMap((root) => {
-        const children = activeCategories.filter((item) => item.parentId === root.id);
+        const children = activeCategories.filter(
+          (item) => item.parentId === root.id
+        );
         return children.length ? children : [root];
       }),
     [activeCategories, rootCategories]
@@ -119,11 +211,18 @@ export default function OrdersClient() {
         ...section,
         items: liveItems.filter((item) => {
           if (item.category !== section.id || item.isActive === false) return false;
-          return !query || [item.name, item.description].join(" ").toLowerCase().includes(query);
+          return (
+            !query ||
+            [item.name, item.description]
+              .join(" ")
+              .toLowerCase()
+              .includes(query)
+          );
         })
       }))
       .filter((section) => section.items.length);
   }, [category, liveItems, menuSections, search]);
+
   const total = cart.reduce(
     (sum, item) => sum + Number(item.price || 0) * item.quantity,
     0
@@ -132,15 +231,29 @@ export default function OrdersClient() {
     (order) => String(order.status || "pending") === statusFilter
   );
   const counts = Object.fromEntries(
-    statuses.map((status) => [status, orders.filter((order) => order.status === status).length])
+    statuses.map((status) => [
+      status,
+      orders.filter(
+        (order) => String(order.status || "pending") === status
+      ).length
+    ])
   );
 
   function add(item, section) {
+    if (
+      effectiveProductAvailability(item, section, activeCategories) !==
+      "available"
+    ) {
+      setMessage(`${item.name} is coming soon and cannot be ordered yet.`);
+      return;
+    }
     const orderItem = { ...item, image: resolvedMenuImage(item, section) };
     setCart((current) =>
       current.some((line) => line.id === orderItem.id)
         ? current.map((line) =>
-            line.id === orderItem.id ? { ...line, quantity: line.quantity + 1 } : line
+            line.id === orderItem.id
+              ? { ...line, quantity: line.quantity + 1 }
+              : line
           )
         : [...current, { ...orderItem, quantity: 1 }]
     );
@@ -151,16 +264,25 @@ export default function OrdersClient() {
     setCart((current) =>
       current
         .map((item) =>
-          item.id === id ? { ...item, quantity: item.quantity + delta } : item
+          item.id === id
+            ? { ...item, quantity: item.quantity + delta }
+            : item
         )
         .filter((item) => item.quantity > 0)
     );
   }
 
+  function remove(id) {
+    const removed = cart.find((item) => item.id === id);
+    setCart((current) => current.filter((item) => item.id !== id));
+    setMessage(removed ? `${removed.name} removed from the order.` : "");
+  }
+
   async function submit() {
     if (!cart.length || submitting) return;
     setSubmitting(true);
-    setMessage("Submitting order...");
+    setMessage("Sending order to the kitchen...");
+
     try {
       const response = await fetch("/api/orders", {
         method: "POST",
@@ -170,8 +292,6 @@ export default function OrdersClient() {
           phone: "in-person",
           order_type: "dine_in",
           table_number: table,
-          notes,
-          payment_method: paymentMethod,
           items: cart.map((item) => ({
             menu_item_id: item.databaseId || item.id,
             quantity: item.quantity
@@ -179,11 +299,12 @@ export default function OrdersClient() {
         })
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Unable to submit order.");
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to submit order.");
+      }
 
-      setMessage(`Order submitted for Table ${table}.`);
+      setMessage(`Table ${table} order sent successfully.`);
       setCart([]);
-      setNotes("");
       setStatusFilter("pending");
       await loadOrders();
     } catch (error) {
@@ -193,305 +314,701 @@ export default function OrdersClient() {
     }
   }
 
-  async function updateStatus(order, nextStatus, reason = "") {
-    setMessage("Updating order...");
-    const response = await fetch("/api/orders", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: order.id,
-        status: nextStatus,
-        payment_method: order.payment_method || paymentMethod,
-        cancel_reason: reason
-      })
-    });
-    const result = await response.json();
-    if (!response.ok) {
-      setMessage(result.error || "Unable to update order.");
-      return;
-    }
+  async function updateStatus(
+    order,
+    nextStatus,
+    { paymentMethod = "", notes = "", cancelReason = "" } = {}
+  ) {
+    const busyKey = `${order.id}:${nextStatus}`;
+    if (actionBusy) return false;
+    setActionBusy(busyKey);
     setMessage(
-      nextStatus === "finished"
-        ? "Order finished. The total was added to income once."
-        : nextStatus === "cancelled"
-          ? "Order cancelled and the reason was recorded."
-          : `Order moved to ${statusFlow[nextStatus].label}.`
+      nextStatus === "finished" ? "Finishing order..." : "Cancelling order..."
     );
-    setCancelOrder(null);
-    setCancelReason("");
-    await loadOrders();
+
+    try {
+      const response = await fetch("/api/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: order.id,
+          status: nextStatus,
+          ...(paymentMethod ? { payment_method: paymentMethod } : {}),
+          ...(notes ? { notes } : {}),
+          ...(cancelReason ? { cancel_reason: cancelReason } : {})
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to update order.");
+      }
+
+      setMessage(
+        nextStatus === "finished"
+          ? "Order finished and recorded as income."
+          : "Order cancelled."
+      );
+      await loadOrders();
+      return true;
+    } catch (error) {
+      setMessage(error.message || "Unable to update order.");
+      return false;
+    } finally {
+      setActionBusy("");
+    }
+  }
+
+  function openFinishDialog(order) {
+    setFinishOrder(order);
+    setFinishPayment(
+      paymentOptions.some((option) => option.value === order.payment_method)
+        ? order.payment_method
+        : "cash"
+    );
+    setFinishNote(order.notes || "");
+  }
+
+  async function confirmFinish(event) {
+    event.preventDefault();
+    if (!finishOrder || !finishPayment) return;
+    const updated = await updateStatus(finishOrder, "finished", {
+      paymentMethod: finishPayment,
+      notes: finishNote.trim()
+    });
+    if (updated) {
+      setFinishOrder(null);
+      setFinishNote("");
+    }
   }
 
   async function confirmCancellation(event) {
     event.preventDefault();
-    if (!cancelOrder || !cancelReason.trim()) return;
-    await updateStatus(cancelOrder, "cancelled", cancelReason.trim());
+    if (!cancelOrder) return;
+    const updated = await updateStatus(cancelOrder, "cancelled", {
+      cancelReason: cancelReason.trim()
+    });
+    if (updated) {
+      setCancelOrder(null);
+      setCancelReason("");
+    }
   }
 
   return (
-    <section className="waiterWorkspace">
-      <header className="waiterTopbar">
+    <section className="waiterWorkspace waiterShadcnWorkspace">
+      <Card className="waiterTopbar waiterShadcnTopbar">
         <div className="waiterBrand">
-          <img src="/logo.png" alt="" />
+          <img src="/logo.png" alt="EMRAKEL" />
           <div>
             <strong>EMRAKEL</strong>
             <small>Burger, Pizza & Cocktail House</small>
           </div>
         </div>
+
         <div className="waiterPageTitle">
           <span>Restaurant service</span>
           <h1>Waiter Orders</h1>
         </div>
-        <label className="tablePicker">
-          <span>Table</span>
-          <select value={table} onChange={(event) => setTable(event.target.value)}>
-            {Array.from({ length: 20 }, (_, index) => (
-              <option key={index + 1} value={index + 1}>Table {index + 1}</option>
-            ))}
-          </select>
-        </label>
-        <span className={`liveIndicator ${online ? "" : "offline"}`}>
-          <i /> {online ? "Live" : "Offline"}
-        </span>
-      </header>
 
-      <div className="waiterLayout">
-        <main className="waiterMenuArea">
-          <div className="waiterMenuToolbar">
-            <div className="waiterCategoryTabs">
-              <button
-                className={category === "all" ? "active" : ""}
-                onClick={() => setCategory("all")}
-                type="button"
-              >
-                <span>▦</span> All
-              </button>
-              {rootCategories.map((item) => (
-                <button
-                  className={category === item.id ? "active" : ""}
-                  key={item.id}
-                  onClick={() => setCategory(item.id)}
-                  type="button"
-                >
-                  {item.name}
-                </button>
+        <div className="waiterTableControl">
+          <Label htmlFor="waiter-table">Serving table</Label>
+          <Select value={table} onValueChange={setTable}>
+            <SelectTrigger id="waiter-table" aria-label="Serving table">
+              <SelectValue placeholder="Select a table">
+                Table {table}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 20 }, (_, index) => (
+                <SelectItem key={index + 1} value={String(index + 1)}>
+                  Table {index + 1}
+                </SelectItem>
               ))}
-            </div>
-            <label className="waiterSearch">
-              <span>⌕</span>
-              <input
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Badge
+          className="waiterLiveBadge"
+          variant={online ? "success" : "destructive"}
+        >
+          {online ? <Wifi size={14} /> : <WifiOff size={14} />}
+          {online ? "Live" : "Offline"}
+        </Badge>
+      </Card>
+
+      <div className="waiterLayout waiterShadcnLayout">
+        <Card className="waiterMenuArea waiterShadcnMenu">
+          <CardHeader className="waiterMenuToolbar">
+            <Tabs
+              className="waiterCategoryTabs"
+              value={category}
+              onValueChange={setCategory}
+            >
+              <TabsList>
+                <TabsTrigger value="all">
+                  <Utensils size={16} /> All
+                </TabsTrigger>
+                {rootCategories.map((item) => (
+                  <TabsTrigger key={item.id} value={item.id}>
+                    {item.name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+
+            <div className="ui-input-with-icon waiterSearch">
+              <Search size={17} />
+              <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search menu"
+                placeholder="Search dishes and drinks..."
+                aria-label="Search menu"
               />
-            </label>
-          </div>
+            </div>
+          </CardHeader>
 
-          {visibleSections.length ? visibleSections.map((section) => (
-            <section className="waiterMenuSection" key={section.id}>
-              <div className="waiterSectionHeading">
-                <div>
-                  <span className="waiterSectionIcon">◆</span>
-                  <h2>{section.name}</h2>
-                </div>
-                <p>{section.description}</p>
-                <span>{section.items.length} items</span>
-              </div>
-              <div className="waiterItemGrid">
-                {section.items.map((item) => (
-                  <article className="waiterItemCard" key={item.id}>
-                    <button
-                      className="waiterItemImageButton"
-                      onClick={() => add(item, section)}
-                      type="button"
-                      aria-label={`Add ${item.name}`}
-                    >
-                      <img src={resolvedMenuImage(item, section)} alt="" />
-                    </button>
-                    <div className="waiterItemInfo">
-                      <h3>{item.name}</h3>
-                      <p>{item.description || "Freshly prepared at EMRAKEL."}</p>
+          <CardContent className="waiterMenuContent">
+            {visibleSections.length ? (
+              visibleSections.map((section) => (
+                <section className="waiterMenuSection" key={section.id}>
+                  <div className="waiterSectionHeading">
+                    <div>
+                      <span className="waiterSectionIcon">
+                        <ChefHat size={17} />
+                      </span>
                       <div>
-                        <strong>{money(item.price)}</strong>
-                        <button className="waiterAddButton" onClick={() => add(item, section)} type="button">
-                          Add
-                        </button>
+                        <h2>{section.name}</h2>
+                        {section.description ? (
+                          <p>{section.description}</p>
+                        ) : null}
                       </div>
                     </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )) : (
-            <div className="waiterNoResults">
-              <strong>No menu items found</strong>
-              <span>Try another category or search term.</span>
-            </div>
-          )}
-        </main>
+                    <div className="waiterSectionBadges">
+                      {effectiveSectionAvailability(section, activeCategories) ===
+                      "coming_soon" ? (
+                        <Badge variant="warning">Coming Soon</Badge>
+                      ) : null}
+                      <Badge variant="secondary">
+                        {section.items.length}{" "}
+                        {section.items.length === 1 ? "item" : "items"}
+                      </Badge>
+                    </div>
+                  </div>
 
-        <aside className="waiterSidePanel">
-          <section className="waiterCurrentOrder">
-            <div className="waiterPanelHeading">
+                  <div className="waiterItemGrid">
+                    {section.items.map((item) => {
+                      const itemStatus = effectiveProductAvailability(
+                        item,
+                        section,
+                        activeCategories
+                      );
+                      const comingSoon = itemStatus === "coming_soon";
+                      return (
+                      <Card className={`waiterItemCard ${comingSoon ? "isComingSoon" : ""}`} key={item.id}>
+                        <button
+                          className="waiterItemImageButton"
+                          onClick={() => add(item, section)}
+                          type="button"
+                          disabled={comingSoon}
+                          aria-label={`Add ${item.name}`}
+                        >
+                          <img
+                            src={resolvedMenuImage(item, section)}
+                            alt={item.name}
+                          />
+                          <span className={`waiterImageAddHint ${comingSoon ? "comingSoon" : ""}`}>
+                            {comingSoon ? (
+                              <><Clock3 size={15} /> Coming Soon</>
+                            ) : (
+                              <><Plus size={15} /> Add to order</>
+                            )}
+                          </span>
+                        </button>
+                        <CardContent className="waiterItemInfo">
+                          <div>
+                            <h3>{item.name}</h3>
+                            <p>
+                              {item.description ||
+                                "Freshly prepared at EMRAKEL."}
+                            </p>
+                          </div>
+                          <div className="waiterItemFooter">
+                            {comingSoon ? (
+                              <Badge variant="warning">Coming Soon</Badge>
+                            ) : (
+                              <strong>{money(item.price)}</strong>
+                            )}
+                            <Button
+                              variant={comingSoon ? "secondary" : "gold"}
+                              size="sm"
+                              onClick={() => add(item, section)}
+                              disabled={comingSoon}
+                              type="button"
+                            >
+                              {comingSoon ? (
+                                <><Clock3 size={15} /> Coming Soon</>
+                              ) : (
+                                <><Plus size={15} /> Add</>
+                              )}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                    })}
+                  </div>
+                </section>
+              ))
+            ) : (
+              <div className="waiterNoResults">
+                <CircleOff size={30} />
+                <strong>No menu items found</strong>
+                <span>Try another category or search term.</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <aside className="waiterSidePanel waiterShadcnSidePanel">
+          <Card className="waiterCurrentOrder">
+            <CardHeader className="waiterPanelHeading">
               <div>
-                <span>▣</span>
-                <h2>Current Order</h2>
+                <span className="waiterPanelIcon">
+                  <ShoppingBasket size={18} />
+                </span>
+                <div>
+                  <CardTitle>Current Order</CardTitle>
+                  <CardDescription>
+                    Review items before sending them.
+                  </CardDescription>
+                </div>
               </div>
-              <strong>Table {table}</strong>
-            </div>
-            <div className="waiterCartList">
-              {cart.length ? cart.map((item) => (
-                <div className="waiterCartLine" key={item.id}>
-                  <img src={item.image || "/logo.png"} alt="" />
-                  <div className="waiterCartName">
-                    <strong>{item.name}</strong>
-                    <span>{money(item.price)} each</span>
-                  </div>
-                  <div className="waiterQuantity">
-                    <button onClick={() => change(item.id, -1)} type="button">−</button>
-                    <b>{item.quantity}</b>
-                    <button onClick={() => change(item.id, 1)} type="button">+</button>
-                  </div>
-                  <strong className="waiterLineTotal">{money(item.price * item.quantity)}</strong>
-                </div>
-              )) : (
-                <div className="waiterEmpty">
-                  <span>▣</span>
-                  <strong>No items selected</strong>
-                  <p>Choose a menu item to start the order.</p>
-                </div>
-              )}
-            </div>
-            <div className="waiterOrderOptions">
-              <label>
-                Payment
-                <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
-                  <option value="cash">Cash</option>
-                  <option value="bank">Bank transfer</option>
-                  <option value="telebirr">Telebirr</option>
-                </select>
-              </label>
-              <label>
-                Note
-                <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="No onions, takeaway..." />
-              </label>
-            </div>
-            <div className="waiterSubtotal">
-              <span>Subtotal</span>
-              <strong>{money(total)}</strong>
-            </div>
-            <div className="waiterTotal">
-              <span>Total</span>
-              <strong>{money(total)}</strong>
-            </div>
-            <button
-              className="waiterSubmitButton"
-              disabled={!cart.length || submitting}
-              onClick={submit}
-              type="button"
-            >
-              <span>▣</span> {submitting ? "Submitting..." : "Submit Order"}
-            </button>
-            {message ? <p className="waiterMessage" role="status">{message}</p> : null}
-          </section>
+              <Badge variant="warning">Table {table}</Badge>
+            </CardHeader>
 
-          <section className="waiterQueue">
-            <div className="waiterStatusTabs">
-              {statuses.map((status) => (
-                <button
-                  className={statusFilter === status ? "active" : ""}
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
-                  type="button"
-                >
-                  <span>{statusFlow[status].icon}</span>
-                  {statusFlow[status].label}
-                  {counts[status] ? <small>{counts[status]}</small> : null}
-                </button>
-              ))}
-            </div>
-            <div className="waiterQueueList">
-              {visibleOrders.length ? visibleOrders.map((order) => {
-                const flow = statusFlow[order.status] || statusFlow.pending;
-                return (
-                  <article className="waiterQueueCard" key={order.id}>
-                    <div className="waiterQueueNumber">
-                      <b>#{String(order.id).slice(-4).toUpperCase()}</b>
-                      <span>Table {order.table_number || "-"}</span>
-                    </div>
-                    <div className="waiterQueueDetails">
-                      <strong>
-                        {orderLines(order).map((item) => `${item.name} ×${item.quantity}`).join(", ")}
-                      </strong>
-                      <span>{order.notes || "No special notes"}</span>
-                      <small>{elapsedTime(order.created_at)}</small>
-                    </div>
-                    <div className="waiterQueueTotal">
-                      <strong>{money(order.total_amount)}</strong>
-                      <span>{order.payment_method || "cash"}</span>
-                    </div>
-                    {order.status === "pending" ? (
-                      <div className="waiterOrderActions">
-                        <button
-                          className="waiterCancelButton"
-                          onClick={() => {
-                            setCancelOrder(order);
-                            setCancelReason("");
-                          }}
+            <CardContent className="waiterCurrentContent">
+              <ScrollArea className="waiterCartScroll">
+                <div className="waiterCartList">
+                  {cart.length ? (
+                    cart.map((item) => (
+                      <div className="waiterCartLine" key={item.id}>
+                        <img src={item.image || "/logo.png"} alt={item.name} />
+                        <div className="waiterCartName">
+                          <strong>{item.name}</strong>
+                          <span>{money(item.price)} each</span>
+                        </div>
+                        <Button
+                          className="waiterRemoveButton"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => remove(item.id)}
                           type="button"
+                          aria-label={`Remove ${item.name}`}
+                          title={`Remove ${item.name}`}
                         >
-                          × Cancel
-                        </button>
-                        <button
-                          className="waiterFinishButton status-pending"
-                          onClick={() => updateStatus(order, "finished")}
-                          type="button"
-                        >
-                          ✓ Finish
-                        </button>
+                          <X size={16} />
+                        </Button>
+                        <div className="waiterCartControls">
+                          <div className="waiterQuantity">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => change(item.id, -1)}
+                              type="button"
+                              aria-label={`Decrease ${item.name}`}
+                            >
+                              <Minus size={14} />
+                            </Button>
+                            <b>{item.quantity}</b>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => change(item.id, 1)}
+                              type="button"
+                              aria-label={`Increase ${item.name}`}
+                            >
+                              <Plus size={14} />
+                            </Button>
+                          </div>
+                          <strong className="waiterLineTotal">
+                            {money(item.price * item.quantity)}
+                          </strong>
+                        </div>
                       </div>
-                    ) : order.status === "cancelled" ? (
-                      <span className="waiterCancelledLabel">× {order.cancel_reason || "Cancelled"}</span>
-                    ) : (
-                      <span className="waiterCompletedLabel">✓ Recorded in income</span>
-                    )}
-                  </article>
-                );
-              }) : <p className="waiterEmptyQueue">No {statusFlow[statusFilter].label.toLowerCase()} orders.</p>}
-            </div>
-          </section>
+                    ))
+                  ) : (
+                    <div className="waiterEmpty">
+                      <ShoppingBasket size={29} />
+                      <strong>Your order is empty</strong>
+                      <p>Select a menu item to begin Table {table}&apos;s order.</p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+
+              <Separator />
+              <div className="waiterOrderTotals">
+                <div className="waiterSubtotal">
+                  <span>Items</span>
+                  <strong>
+                    {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                  </strong>
+                </div>
+                <div className="waiterTotal">
+                  <span>Total</span>
+                  <strong>{money(total)}</strong>
+                </div>
+              </div>
+            </CardContent>
+
+            <CardFooter className="waiterSubmitFooter">
+              <Button
+                className="waiterSubmitButton"
+                variant="gold"
+                size="lg"
+                disabled={!cart.length || submitting}
+                onClick={submit}
+                type="button"
+              >
+                <ReceiptText size={18} />
+                {submitting ? "Sending..." : "Send order to kitchen"}
+              </Button>
+              {message ? (
+                <p className="waiterMessage" role="status">
+                  {message}
+                </p>
+              ) : null}
+            </CardFooter>
+          </Card>
+
+          <Card className="waiterQueue">
+            <Tabs
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+              className="waiterQueueTabs"
+            >
+              <CardHeader className="waiterQueueHeader">
+                <div>
+                  <CardTitle>Order Queue</CardTitle>
+                  <CardDescription>
+                    Finish or cancel pending table orders.
+                  </CardDescription>
+                </div>
+                <TabsList className="waiterStatusTabs">
+                  {statuses.map((status) => {
+                    const flow = statusFlow[status];
+                    const Icon = flow.icon;
+                    return (
+                      <TabsTrigger value={status} key={status}>
+                        <Icon size={14} />
+                        {flow.label}
+                        <span>{counts[status] || 0}</span>
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+              </CardHeader>
+
+              {statuses.map((status) => (
+                <TabsContent value={status} key={status}>
+                  <ScrollArea className="waiterQueueScroll">
+                    <CardContent className="waiterQueueList">
+                      {visibleOrders.length ? (
+                        visibleOrders.map((order) => {
+                          const flow =
+                            statusFlow[order.status] || statusFlow.pending;
+                          const FlowIcon = flow.icon;
+                          const isUpdating = actionBusy.startsWith(
+                            `${order.id}:`
+                          );
+
+                          return (
+                            <Card className="waiterQueueCard" key={order.id}>
+                              <CardHeader className="waiterQueueCardHeader">
+                                <div className="waiterQueueIdentity">
+                                  <span className="waiterQueueNumber">
+                                    <Store size={15} />
+                                    <b>
+                                      #
+                                      {String(order.id)
+                                        .slice(-4)
+                                        .toUpperCase()}
+                                    </b>
+                                  </span>
+                                  <div>
+                                    <strong>
+                                      Table {order.table_number || "-"}
+                                    </strong>
+                                    <small>
+                                      <Clock3 size={12} />
+                                      {elapsedTime(order.created_at)}
+                                    </small>
+                                  </div>
+                                </div>
+                                <Badge variant={flow.badge}>
+                                  <FlowIcon size={13} /> {flow.label}
+                                </Badge>
+                              </CardHeader>
+
+                              <CardContent className="waiterQueueCardContent">
+                                <div className="waiterQueueItems">
+                                  {orderLines(order).map((item, index) => (
+                                    <div key={item.id || `${item.name}-${index}`}>
+                                      <span>{item.name}</span>
+                                      <strong>×{item.quantity}</strong>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <Separator />
+
+                                <div className="waiterQueueMeta">
+                                  <div>
+                                    <span>Total</span>
+                                    <strong>{money(order.total_amount)}</strong>
+                                  </div>
+                                  <div>
+                                    <span>Payment</span>
+                                    <strong>
+                                      {order.status === "pending"
+                                        ? "Select when finishing"
+                                        : paymentLabel(order.payment_method)}
+                                    </strong>
+                                  </div>
+                                </div>
+
+                                {order.notes ? (
+                                  <p className="waiterOrderNote">
+                                    <ReceiptText size={14} />
+                                    {order.notes}
+                                  </p>
+                                ) : null}
+                                {order.status === "cancelled" ? (
+                                  <p className="waiterCancelReason">
+                                    <XCircle size={14} />
+                                    {order.cancel_reason ||
+                                      "No cancellation reason provided"}
+                                  </p>
+                                ) : null}
+                              </CardContent>
+
+                              {order.status === "pending" ? (
+                                <CardFooter className="waiterOrderActions">
+                                  <Button
+                                    variant="destructive"
+                                    disabled={isUpdating}
+                                    onClick={() => {
+                                      setCancelOrder(order);
+                                      setCancelReason("");
+                                    }}
+                                    type="button"
+                                  >
+                                    <Trash2 size={15} /> Cancel
+                                  </Button>
+                                  <Button
+                                    variant="success"
+                                    disabled={isUpdating}
+                                    onClick={() => openFinishDialog(order)}
+                                    type="button"
+                                  >
+                                    <Check size={16} /> Finish
+                                  </Button>
+                                </CardFooter>
+                              ) : (
+                                <CardFooter
+                                  className={`waiterResolution ${
+                                    order.status === "cancelled"
+                                      ? "cancelled"
+                                      : "finished"
+                                  }`}
+                                >
+                                  {order.status === "cancelled" ? (
+                                    <XCircle size={15} />
+                                  ) : (
+                                    <Banknote size={15} />
+                                  )}
+                                  {order.status === "cancelled"
+                                    ? "Order cancelled"
+                                    : "Recorded in income"}
+                                </CardFooter>
+                              )}
+                            </Card>
+                          );
+                        })
+                      ) : (
+                        <div className="waiterEmptyQueue">
+                          <CircleOff size={27} />
+                          <strong>
+                            No {statusFlow[status].label.toLowerCase()} orders
+                          </strong>
+                          <span>Orders in this status will appear here.</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </ScrollArea>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </Card>
         </aside>
       </div>
-      {cancelOrder ? (
-        <div className="adminModalBackdrop" role="presentation" onMouseDown={() => setCancelOrder(null)}>
-          <form
-            className="adminModalCard waiterCancelModal"
-            onMouseDown={(event) => event.stopPropagation()}
-            onSubmit={confirmCancellation}
-          >
-            <div>
-              <p className="eyebrow">Cancel order</p>
-              <h2>Why is this order cancelled?</h2>
-              <p>Table {cancelOrder.table_number || "-"} · {money(cancelOrder.total_amount)}</p>
+
+      <Dialog
+        open={Boolean(finishOrder)}
+        onOpenChange={(open) => {
+          if (!open && !actionBusy) setFinishOrder(null);
+        }}
+      >
+        <DialogContent className="waiterDecisionDialog">
+          <form onSubmit={confirmFinish}>
+            <DialogHeader className="waiterDecisionHeader">
+              <span className="waiterDecisionIcon finish">
+                <CheckCircle2 size={29} />
+              </span>
+              <div>
+                <p className="eyebrow">Finish order</p>
+                <DialogTitle>Complete this table order?</DialogTitle>
+                <DialogDescription>
+                  Select how the customer paid. The total will be recorded as
+                  income after confirmation.
+                </DialogDescription>
+              </div>
+            </DialogHeader>
+
+            {finishOrder ? (
+              <div className="waiterDialogSummary">
+                <span>Table {finishOrder.table_number || "-"}</span>
+                <strong>{money(finishOrder.total_amount)}</strong>
+              </div>
+            ) : null}
+
+            <div className="waiterDialogFields">
+              <div className="ui-field">
+                <Label htmlFor="finish-payment">
+                  Payment method <span aria-hidden="true">*</span>
+                </Label>
+                <Select
+                  value={finishPayment}
+                  onValueChange={setFinishPayment}
+                >
+                  <SelectTrigger id="finish-payment">
+                    <SelectValue placeholder="Select payment method">
+                      {paymentLabel(finishPayment)}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="ui-field">
+                <Label htmlFor="finish-note">
+                  Order note <span className="waiterOptional">Optional</span>
+                </Label>
+                <Textarea
+                  id="finish-note"
+                  value={finishNote}
+                  onChange={(event) => setFinishNote(event.target.value)}
+                  placeholder="Add a payment or service note..."
+                  maxLength={500}
+                />
+              </div>
             </div>
-            <label>
-              Cancellation reason
-              <textarea
-                autoFocus
-                required
-                value={cancelReason}
-                onChange={(event) => setCancelReason(event.target.value)}
-                placeholder="Write the reason before cancelling"
-              />
-            </label>
-            <div className="adminModalActions">
-              <button className="button buttonLine" type="button" onClick={() => setCancelOrder(null)}>Keep order</button>
-              <button className="button buttonDark" type="submit">Cancel order</button>
-            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                type="button"
+                disabled={Boolean(actionBusy)}
+                onClick={() => setFinishOrder(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="success"
+                type="submit"
+                disabled={!finishPayment || Boolean(actionBusy)}
+              >
+                <CheckCircle2 size={16} />
+                {actionBusy ? "Finishing..." : "Confirm finish"}
+              </Button>
+            </DialogFooter>
           </form>
-        </div>
-      ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(cancelOrder)}
+        onOpenChange={(open) => {
+          if (!open && !actionBusy) setCancelOrder(null);
+        }}
+      >
+        <DialogContent className="waiterDecisionDialog">
+          <form onSubmit={confirmCancellation}>
+            <DialogHeader className="waiterDecisionHeader">
+              <span className="waiterDecisionIcon cancel">
+                <XCircle size={29} />
+              </span>
+              <div>
+                <p className="eyebrow">Cancel order</p>
+                <DialogTitle>Cancel this table order?</DialogTitle>
+                <DialogDescription>
+                  The order will be locked and excluded from finished-order
+                  income.
+                </DialogDescription>
+              </div>
+            </DialogHeader>
+
+            {cancelOrder ? (
+              <div className="waiterDialogSummary cancel">
+                <span>Table {cancelOrder.table_number || "-"}</span>
+                <strong>{money(cancelOrder.total_amount)}</strong>
+              </div>
+            ) : null}
+
+            <div className="waiterDialogFields">
+              <div className="ui-field">
+                <Label htmlFor="cancel-reason">
+                  Cancellation reason{" "}
+                  <span className="waiterOptional">Optional</span>
+                </Label>
+                <Textarea
+                  id="cancel-reason"
+                  autoFocus
+                  value={cancelReason}
+                  onChange={(event) => setCancelReason(event.target.value)}
+                  placeholder="Add a reason if needed..."
+                  maxLength={500}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                type="button"
+                disabled={Boolean(actionBusy)}
+                onClick={() => setCancelOrder(null)}
+              >
+                Keep order
+              </Button>
+              <Button
+                variant="destructive"
+                type="submit"
+                disabled={Boolean(actionBusy)}
+              >
+                <XCircle size={16} />
+                {actionBusy ? "Cancelling..." : "Confirm cancellation"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
-

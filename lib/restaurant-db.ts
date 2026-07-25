@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { getDbPool, withTransaction } from "@/lib/db";
+import { menuAvailabilityStatus } from "@/lib/menu-availability";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const orderStatuses = new Set(["pending", "finished", "cancelled"]);
@@ -20,6 +21,10 @@ function mapCategory(row) {
     description: row.description || "",
     image: row.image_url || "",
     menuSide: row.menu_side || inferSide(row),
+    availabilityStatus: menuAvailabilityStatus({
+      availability_status: row.availability_status,
+      isActive: row.is_active !== false
+    }),
     isActive: row.is_active !== false
   };
 }
@@ -33,6 +38,10 @@ function mapMenuItem(row, categorySlugById) {
     description: row.description || "",
     price: Number(row.price || 0),
     image: row.image_url || "",
+    availabilityStatus: menuAvailabilityStatus({
+      availability_status: row.availability_status,
+      isActive: row.is_available !== false
+    }),
     isActive: row.is_available !== false
   };
 }
@@ -65,17 +74,21 @@ export async function readMenuFromPostgres({ includeInactive = false } = {}) {
   const pool = getDbPool();
   if (!pool) return null;
 
-  const categoryWhere = includeInactive ? "" : "where is_active = true";
-  const itemWhere = includeInactive ? "" : "where is_available = true";
+  const categoryWhere = includeInactive
+    ? ""
+    : "where is_active = true and availability_status <> 'hidden'";
+  const itemWhere = includeInactive
+    ? ""
+    : "where is_available = true and availability_status <> 'hidden'";
   const [categoryResult, itemResult] = await Promise.all([
     pool.query(
-      `select id, slug, name, description, parent_slug, image_url, menu_side, sort_order, is_active
+      `select id, slug, name, description, parent_slug, image_url, menu_side, sort_order, is_active, availability_status
        from public.menu_categories
        ${categoryWhere}
        order by sort_order, name`
     ),
     pool.query(
-      `select id, category_id, slug, name, description, price, image_url, sort_order, is_available
+      `select id, category_id, slug, name, description, price, image_url, sort_order, is_available, availability_status
        from public.menu_items
        ${itemWhere}
        order by sort_order, name`
@@ -104,10 +117,11 @@ export async function saveMenuToPostgres(categories, items) {
       const name = String(category.name || "").trim();
       if (!slug || !name) throw requestError("Every menu section needs a key and name.");
 
+      const availabilityStatus = menuAvailabilityStatus(category);
       const { rows } = await client.query(
         `insert into public.menu_categories
-          (slug, name, description, parent_slug, image_url, menu_side, sort_order, is_active, updated_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, now())
+          (slug, name, description, parent_slug, image_url, menu_side, sort_order, is_active, availability_status, updated_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
          on conflict (slug) do update set
            name = excluded.name,
            description = excluded.description,
@@ -116,6 +130,7 @@ export async function saveMenuToPostgres(categories, items) {
            menu_side = excluded.menu_side,
            sort_order = excluded.sort_order,
            is_active = excluded.is_active,
+           availability_status = excluded.availability_status,
            updated_at = now()
          returning id`,
         [
@@ -126,7 +141,8 @@ export async function saveMenuToPostgres(categories, items) {
           category.image || null,
           category.menuSide === "drinks" ? "drinks" : "food",
           index + 1,
-          category.isActive !== false
+          availabilityStatus !== "hidden",
+          availabilityStatus
         ]
       );
       categoryIdBySlug[slug] = rows[0].id;
@@ -135,15 +151,18 @@ export async function saveMenuToPostgres(categories, items) {
     for (const [index, item] of items.entries()) {
       const slug = String(item.id || "").trim();
       const name = String(item.name || "").trim();
-      const price = Number(item.price);
+      const availabilityStatus = menuAvailabilityStatus(item);
+      const price = item.price === "" || item.price === null || item.price === undefined
+        ? 0
+        : Number(item.price);
       if (!slug || !name || !Number.isFinite(price) || price < 0) {
         throw requestError("Every menu item needs a key, name, and valid non-negative price.");
       }
 
       await client.query(
         `insert into public.menu_items
-          (slug, category_id, name, description, price, image_url, sort_order, is_available, updated_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, now())
+          (slug, category_id, name, description, price, image_url, sort_order, is_available, availability_status, updated_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
          on conflict (slug) do update set
            category_id = excluded.category_id,
            name = excluded.name,
@@ -152,6 +171,7 @@ export async function saveMenuToPostgres(categories, items) {
            image_url = excluded.image_url,
            sort_order = excluded.sort_order,
            is_available = excluded.is_available,
+           availability_status = excluded.availability_status,
            updated_at = now()`,
         [
           slug,
@@ -161,7 +181,8 @@ export async function saveMenuToPostgres(categories, items) {
           price,
           item.image || null,
           index + 1,
-          item.isActive !== false
+          availabilityStatus !== "hidden",
+          availabilityStatus
         ]
       );
     }
@@ -237,10 +258,16 @@ export async function createOrderInPostgres(body) {
     if (!identifiers.length) throw requestError("Select at least one valid menu item.");
 
     const { rows: menuRows } = await client.query(
-      `select id, slug, name, price
-       from public.menu_items
-       where is_available = true
-         and (id::text = any($1::text[]) or slug = any($1::text[]))`,
+      `select item.id, item.slug, item.name, item.price
+       from public.menu_items item
+       join public.menu_categories category on category.id = item.category_id
+       left join public.menu_categories parent on parent.slug = category.parent_slug
+       where item.is_available = true
+         and item.availability_status = 'available'
+         and category.is_active = true
+         and category.availability_status = 'available'
+         and (parent.id is null or (parent.is_active = true and parent.availability_status = 'available'))
+         and (item.id::text = any($1::text[]) or item.slug = any($1::text[]))`,
       [identifiers]
     );
     const menuByIdentifier = new Map();
@@ -279,7 +306,7 @@ export async function createOrderInPostgres(body) {
         body.address || null,
         body.notes || null,
         totalAmount,
-        body.payment_method || "cash"
+        body.payment_method || null
       ]
     );
     const order = rows[0];
@@ -307,7 +334,7 @@ export async function createOrderInPostgres(body) {
 export async function updateOrderStatusInPostgres(
   id,
   status,
-  { paymentMethod = null, userId = null, cancelReason = "" } = {}
+  { paymentMethod = null, userId = null, cancelReason = "", notes = "" } = {}
 ) {
   const pool = getDbPool();
   if (!pool) return null;
@@ -326,9 +353,7 @@ export async function updateOrderStatusInPostgres(
       throw requestError("Completed and cancelled orders are locked.", 409);
     }
     const normalizedCancelReason = String(cancelReason || "").trim();
-    if (nextStatus === "cancelled" && !normalizedCancelReason) {
-      throw requestError("A cancellation reason is required.", 400);
-    }
+    const normalizedNotes = String(notes || "").trim();
 
     const finishedAt = nextStatus === "finished" ? new Date() : existing.finished_at;
     const paidAt = nextStatus === "finished" ? new Date() : existing.paid_at;
@@ -341,6 +366,7 @@ export async function updateOrderStatusInPostgres(
            paid_at = $5,
            cancel_reason = case when $2 = 'cancelled' then $6 else cancel_reason end,
            cancelled_at = $7,
+           notes = case when $2 = 'finished' and $8 <> '' then $8 else notes end,
            updated_at = now()
        where id = $1
        returning *`,
@@ -351,7 +377,8 @@ export async function updateOrderStatusInPostgres(
         finishedAt,
         paidAt,
         normalizedCancelReason || null,
-        cancelledAt
+        cancelledAt,
+        normalizedNotes
       ]
     );
     const order = rows[0];

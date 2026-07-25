@@ -2,6 +2,10 @@
 "use client";
 
 import { menuBoardSettings } from "@/lib/data";
+import {
+  effectiveProductAvailability,
+  effectiveSectionAvailability
+} from "@/lib/menu-availability";
 import { useSearchParams } from "next/navigation";
 
 export default function MenuOrderClient({ categories, defaultSectionImage = "", items, previewLimitItems = 0, menuBoard = menuBoardSettings }) {
@@ -36,20 +40,33 @@ export default function MenuOrderClient({ categories, defaultSectionImage = "", 
         : boardColumns;
   const renderSection = (section) => {
     const sectionImage = section.image || defaultSectionImage;
+    const sectionStatus = effectiveSectionAvailability(section, categories);
 
     return (
-      <article className="menuBoardSection" key={section.id}>
+      <article className={`menuBoardSection ${sectionStatus === "coming_soon" ? "isComingSoon" : ""}`} key={section.id}>
         {sectionImage ? <img className="menuBoardSectionImage" src={sectionImage} alt="" /> : null}
         <div>
-          <h3>{section.name}</h3>
+          <div className="menuBoardSectionTitle">
+            <h3>{section.name}</h3>
+            {sectionStatus === "coming_soon" ? <span>Coming Soon</span> : null}
+          </div>
           {section.items.length ? (
-            section.items.slice(0, previewLimitItems || 10).map((item) => (
-              <p key={item.id}>
-                <span>{item.name}</span>
-                <i />
-                <strong>{item.price} {menuBoard.priceSuffix || "birr"}</strong>
-              </p>
-            ))
+            section.items.slice(0, previewLimitItems || 10).map((item) => {
+              const itemStatus = effectiveProductAvailability(item, section, categories);
+              if (itemStatus === "hidden") return null;
+              const comingSoon = itemStatus === "coming_soon";
+              return (
+                <p className={comingSoon ? "menuBoardComingSoonItem" : ""} key={item.id}>
+                  <span>{item.name}</span>
+                  <i />
+                  <strong>
+                    {comingSoon
+                      ? "Coming Soon"
+                      : `${item.price} ${menuBoard.priceSuffix || "birr"}`}
+                  </strong>
+                </p>
+              );
+            })
           ) : (
             <p className="menuBoardSectionEmpty">{menuBoard.emptySectionText || "Items coming soon."}</p>
           )}

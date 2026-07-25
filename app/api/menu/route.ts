@@ -2,6 +2,7 @@
 import { forbidden, getLocalState, getPublicContent, inferMenuSide, isAdminRequest, saveLocalState } from "@/lib/cms";
 import { readMenuFromPostgres, saveMenuToPostgres } from "@/lib/restaurant-db";
 import { getSupabaseServer } from "@/lib/supabase";
+import { menuAvailabilityStatus } from "@/lib/menu-availability";
 
 export async function GET(request) {
   if (isAdminRequest(request)) {
@@ -30,24 +31,38 @@ export async function GET(request) {
       const categoryMap = Object.fromEntries((categories || []).map((category) => [category.id, category.slug]));
 
       return Response.json({
-        categories: (categories || []).map((category) => ({
-          id: category.slug || category.id,
-          name: category.name,
-          parentId: category.parent_slug || "",
-          description: category.description || "",
-          image: category.image_url || "",
-          menuSide: category.menu_side || inferMenuSide(category),
-          isActive: category.is_active !== false
-        })),
-        items: (items || []).map((item) => ({
-          id: item.slug || item.id,
-          category: categoryMap[item.category_id] || "burgers",
-          name: item.name,
-          description: item.description || "",
-          price: Number(item.price || 0),
-          image: item.image_url || "",
-          isActive: item.is_available !== false
-        })),
+        categories: (categories || []).map((category) => {
+          const availabilityStatus = menuAvailabilityStatus({
+            availability_status: category.availability_status,
+            isActive: category.is_active !== false
+          });
+          return {
+            id: category.slug || category.id,
+            name: category.name,
+            parentId: category.parent_slug || "",
+            description: category.description || "",
+            image: category.image_url || "",
+            menuSide: category.menu_side || inferMenuSide(category),
+            availabilityStatus,
+            isActive: availabilityStatus !== "hidden"
+          };
+        }),
+        items: (items || []).map((item) => {
+          const availabilityStatus = menuAvailabilityStatus({
+            availability_status: item.availability_status,
+            isActive: item.is_available !== false
+          });
+          return {
+            id: item.slug || item.id,
+            category: categoryMap[item.category_id] || "burgers",
+            name: item.name,
+            description: item.description || "",
+            price: Number(item.price || 0),
+            image: item.image_url || "",
+            availabilityStatus,
+            isActive: availabilityStatus !== "hidden"
+          };
+        }),
         source: "supabase"
       });
     } catch {
@@ -99,16 +114,20 @@ export async function PUT(request) {
     return saveLocalMenu();
   }
 
-  const categoryRows = categories.map((category, index) => ({
-    slug: category.id,
-    name: category.name,
-    description: category.description || "",
-    parent_slug: category.parentId || null,
-    image_url: category.image || null,
-    menu_side: category.menuSide || inferMenuSide(category),
-    sort_order: index + 1,
-    is_active: category.isActive !== false
-  }));
+  const categoryRows = categories.map((category, index) => {
+    const availabilityStatus = menuAvailabilityStatus(category);
+    return {
+      slug: category.id,
+      name: category.name,
+      description: category.description || "",
+      parent_slug: category.parentId || null,
+      image_url: category.image || null,
+      menu_side: category.menuSide || inferMenuSide(category),
+      sort_order: index + 1,
+      availability_status: availabilityStatus,
+      is_active: availabilityStatus !== "hidden"
+    };
+  });
 
   try {
     await supabase.from("menu_categories").update({ is_active: false }).neq("slug", "__never__");
@@ -122,16 +141,20 @@ export async function PUT(request) {
     }
 
     const categoryIdBySlug = Object.fromEntries((savedCategories || []).map((category) => [category.slug, category.id]));
-    const itemRows = items.map((item, index) => ({
-      slug: item.id,
-      category_id: categoryIdBySlug[item.category] || null,
-      name: item.name,
-      description: item.description,
-      price: Number(item.price || 0),
-      image_url: item.image || null,
-      sort_order: index + 1,
-      is_available: item.isActive !== false
-    }));
+    const itemRows = items.map((item, index) => {
+      const availabilityStatus = menuAvailabilityStatus(item);
+      return {
+        slug: item.id,
+        category_id: categoryIdBySlug[item.category] || null,
+        name: item.name,
+        description: item.description,
+        price: Number(item.price || 0),
+        image_url: item.image || null,
+        sort_order: index + 1,
+        availability_status: availabilityStatus,
+        is_available: availabilityStatus !== "hidden"
+      };
+    });
 
     await supabase.from("menu_items").update({ is_available: false }).neq("slug", "__never__");
     const { error: itemError } = await supabase.from("menu_items").upsert(itemRows, { onConflict: "slug" });

@@ -11,6 +11,7 @@ const buttonVariants = cva("ui-button", {
       outline: "ui-button-outline",
       ghost: "ui-button-ghost",
       destructive: "ui-button-destructive",
+      success: "ui-button-success",
       gold: "ui-button-gold"
     },
     size: {
