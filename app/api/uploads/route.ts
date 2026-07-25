@@ -2,6 +2,7 @@
 import path from "path";
 import { mkdir, writeFile } from "fs/promises";
 import { forbidden, isAdminRequest } from "@/lib/cms";
+import { isCloudinaryConfigured, uploadImageToCloudinary } from "@/lib/cloudinary";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { uploadImageToS3 } from "@/lib/storage";
 
@@ -84,7 +85,38 @@ export async function POST(request) {
     const supabase = getSupabaseAdmin();
     const provider =
       process.env.IMAGE_STORAGE_PROVIDER ||
-      (supabase ? "supabase" : "local");
+      (isCloudinaryConfigured() ? "cloudinary" : supabase ? "supabase" : "local");
+
+    if (provider === "cloudinary") {
+      if (!isCloudinaryConfigured()) {
+        return Response.json(
+          {
+            error:
+              "Cloudinary is selected but not configured. Add CLOUDINARY_URL or the three CLOUDINARY credential variables."
+          },
+          { status: 500 }
+        );
+      }
+
+      const uploaded = await uploadImageToCloudinary({
+        bytes,
+        originalName: file.name
+      });
+
+      return Response.json({
+        message: "Image uploaded to Cloudinary.",
+        url: uploaded.url,
+        provider: "cloudinary",
+        path: uploaded.publicId,
+        publicId: uploaded.publicId,
+        assetId: uploaded.assetId,
+        folder: uploaded.folder,
+        format: uploaded.format,
+        width: uploaded.width,
+        height: uploaded.height,
+        bytes: uploaded.bytes
+      });
+    }
 
     if (provider === "s3") {
       const storagePath = `house/${safeName}`;
@@ -150,6 +182,8 @@ export async function POST(request) {
     const help =
       message === "fetch failed"
         ? "Supabase Storage request failed. Check that NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY belong to the same active Supabase project."
+        : /cloudinary/i.test(message)
+          ? `Cloudinary upload failed: ${message}`
         : message;
 
     return Response.json({ error: help }, { status: 500 });

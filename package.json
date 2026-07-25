@@ -31,6 +31,7 @@
     "@radix-ui/react-tooltip": "^1.2.16",
     "@supabase/supabase-js": "^2.50.3",
     "class-variance-authority": "^0.7.1",
+    "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "hono": "^4.7.11",

@@ -45,42 +45,48 @@ ADMIN_EMAIL=owner@example.com
 ADMIN_PASSWORD=USE_A_LONG_UNIQUE_PASSWORD
 ADMIN_NAME=EMRAKEL Owner
 
-IMAGE_STORAGE_PROVIDER=s3
-AWS_REGION=eu-central-1
-AWS_S3_BUCKET=emrakel-images
-AWS_S3_PUBLIC_URL=https://your-cloudfront-or-public-s3-url
-AWS_S3_ENDPOINT=
-AWS_S3_FORCE_PATH_STYLE=false
-UPLOAD_DIR=/app/public/uploads/admin
-UPLOAD_PUBLIC_URL=/uploads/admin
+IMAGE_STORAGE_PROVIDER=cloudinary
+CLOUDINARY_CLOUD_NAME=YOUR_CLOUD_NAME
+CLOUDINARY_API_KEY=YOUR_API_KEY
+CLOUDINARY_API_SECRET=YOUR_API_SECRET
+CLOUDINARY_FOLDER=emrakel-house
 ```
 
-For S3 uploads, also add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as protected
-Coolify secrets. The bucket must allow reads through its configured public URL, or
-`AWS_S3_PUBLIC_URL` should point to a CloudFront distribution. Never expose AWS
-credentials to browser-side code.
+Cloudinary also provides one combined `CLOUDINARY_URL` value in its API Keys page.
+You may use that protected variable instead of the three separate credential variables:
+
+```env
+CLOUDINARY_URL=cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+```
+
+Never prefix Cloudinary secrets with `NEXT_PUBLIC_` and never expose the API secret
+to browser-side code.
 
 Use `DATABASE_SSL=false` for a private Coolify PostgreSQL service. If the database
 provider requires TLS, set it to `true`.
 
-## 4. Image storage
+## 4. Cloudinary image storage
 
-The recommended production configuration uses S3. In that mode, image files remain
-available across deployments and no Docker upload volume is required. Use a public
-S3/CloudFront URL in `AWS_S3_PUBLIC_URL` and store the AWS keys as protected Coolify
-secrets.
+The production image provider is Cloudinary. Every image uploaded from the admin
+workspace is sent by the protected server route to the `emrakel-house` Cloudinary
+asset folder. The returned HTTPS CDN URL is stored with the website/menu record, so
+the homepage, gallery, menu, and waiter-ordering page fetch the image from Cloudinary.
+No Docker upload volume is required.
 
-If S3 is unavailable, the local provider is still supported for development or a
-single VPS:
+To connect an account:
 
-In the application resource, add persistent storage:
+1. Sign in to the Cloudinary Console.
+2. Open **Settings → API Keys** for the intended product environment.
+3. Copy the Cloud Name, API Key, and API Secret into the matching protected Coolify
+   environment variables above. Alternatively, copy the provided API environment
+   variable into `CLOUDINARY_URL`.
+4. Keep `IMAGE_STORAGE_PROVIDER=cloudinary`.
+5. Redeploy the application and upload a test image from `/admin`.
+6. Confirm the saved URL begins with `https://res.cloudinary.com/` and the asset is
+   visible in Cloudinary Media Library under the configured folder.
 
-- Type: Docker volume
-- Destination path: `/app/public/uploads`
-- Suggested volume name: `emrakel-uploads`
-
-Without this volume, local-provider uploads can disappear when the container is
-replaced during a deployment. This does not affect S3 uploads.
+Existing local, Supabase, or S3 URLs continue to display. Re-upload an existing image
+through the admin workspace when you want that specific asset migrated to Cloudinary.
 
 ## 5. Domains and TLS
 
