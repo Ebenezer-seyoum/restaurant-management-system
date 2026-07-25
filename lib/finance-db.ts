@@ -24,6 +24,10 @@ function buildFilters(filters, type) {
     params.push(filters.paymentMethod);
     clauses.push(`payment_method = $${params.length}`);
   }
+  if (type === "expense" && filters.costType && filters.costType !== "all") {
+    params.push(filters.costType);
+    clauses.push(`coalesce(cost_type, 'variable') = $${params.length}`);
+  }
   if (filters.search) {
     params.push(`%${filters.search}%`);
     const searchColumns = [
@@ -42,6 +46,12 @@ function buildFilters(filters, type) {
   };
 }
 
+function expenseAllocation(item) {
+  const amount = Number(item.amount || 0);
+  const months = Math.max(1, Number.parseInt(item.allocation_months, 10) || 1);
+  return item.cost_type === "long_term" ? amount / months : amount;
+}
+
 function addAmount(target, key, amount, labelKey = "label") {
   const found = target.find((item) => item[labelKey] === key);
   if (found) found.amount += amount;
@@ -52,6 +62,7 @@ function summarize(income, expenses) {
   const dailyMap = new Map();
   const paymentBreakdown = [];
   const expenseBreakdown = [];
+  const costTypeBreakdown = [];
 
   for (const item of income) {
     const date = String(item.transaction_date).slice(0, 10);
@@ -66,6 +77,7 @@ function summarize(income, expenses) {
     day.expenses += Number(item.amount || 0);
     dailyMap.set(date, day);
     addAmount(expenseBreakdown, item.category || "Other", Number(item.amount || 0));
+    addAmount(costTypeBreakdown, item.cost_type || "variable", Number(item.amount || 0));
   }
 
   const daily = [...dailyMap.values()]
@@ -73,15 +85,27 @@ function summarize(income, expenses) {
     .sort((a, b) => a.date.localeCompare(b.date));
   const incomeTotal = income.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const expenseTotal = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const allocatedExpenseTotal = expenses.reduce((sum, item) => sum + expenseAllocation(item), 0);
+  const fixedExpenseTotal = expenses
+    .filter((item) => item.cost_type === "fixed")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const operatingExpenseTotal = expenses
+    .filter((item) => !["fixed", "long_term"].includes(item.cost_type || "variable"))
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   return {
     daily,
     paymentBreakdown: paymentBreakdown.sort((a, b) => b.amount - a.amount),
     expenseBreakdown: expenseBreakdown.sort((a, b) => b.amount - a.amount),
+    costTypeBreakdown: costTypeBreakdown.sort((a, b) => b.amount - a.amount),
     totals: {
       income: incomeTotal,
       expenses: expenseTotal,
+      allocatedExpenses: allocatedExpenseTotal,
+      fixedExpenses: fixedExpenseTotal,
+      operatingExpenses: operatingExpenseTotal,
       profit: incomeTotal - expenseTotal,
+      plannedProfit: incomeTotal - allocatedExpenseTotal,
       transactions: income.length + expenses.length
     }
   };
@@ -143,6 +167,11 @@ export async function readFinanceFromPostgres(filters = {}) {
     shouldReadExpenses
       ? db.query(
           `select id, category, description, amount, payment_method, expense_date,
+                  coalesce(cost_type, 'variable') as cost_type,
+                  coalesce(recurrence, 'one_time') as recurrence,
+                  coalesce(allocation_months, 1)::integer as allocation_months,
+                  allocation_start_date,
+                  allocation_end_date,
                   status, notes, receipt_url, created_at
            from public.expenses
            where status = 'active' ${expenseFilters.sql}
@@ -168,6 +197,7 @@ export async function readFinanceFromPostgres(filters = {}) {
       to: filters.to || "",
       type,
       paymentMethod: filters.paymentMethod || "all",
+      costType: filters.costType || "all",
       search: filters.search || ""
     },
     source: "postgres"
@@ -179,16 +209,30 @@ export async function createPostgresExpense(body, userId = null) {
   if (!db) return null;
 
   return withTransaction(async (client) => {
+    const costType = String(body.cost_type || "variable").trim();
+    const recurrence = String(body.recurrence || "one_time").trim();
+    const allocationMonths = Math.max(1, Number.parseInt(body.allocation_months, 10) || 1);
     const result = await client.query(
       `insert into public.expenses
-        (category_id, category, description, amount, payment_method, expense_date, notes, receipt_url, created_by)
-       values (null, 'Operating expense', $1, $2, $3, coalesce($4::date, current_date), $5, $6, $7)
+        (category_id, category, description, amount, payment_method, expense_date,
+         cost_type, recurrence, allocation_months, allocation_start_date, allocation_end_date,
+         notes, receipt_url, created_by)
+       values (null, $1, $2, $3, $4, coalesce($5::date, current_date),
+               $6, $7, $8, coalesce($9::date, $5::date, current_date),
+               case when $10::date is not null then $10::date else null end,
+               $11, $12, $13)
        returning *`,
       [
+        body.category || costType,
         String(body.description || "").trim(),
         Number(body.amount),
         body.payment_method || "cash",
         body.expense_date || null,
+        costType,
+        recurrence,
+        allocationMonths,
+        body.allocation_start_date || body.expense_date || null,
+        body.allocation_end_date || null,
         body.notes || null,
         body.receipt_url || null,
         userId && uuidPattern.test(String(userId)) ? userId : null

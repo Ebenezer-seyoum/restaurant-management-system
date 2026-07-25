@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Download, Plus, ReceiptText, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
+import { CalendarClock, Download, Layers3, Plus, ReceiptText, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 
 const paymentMethods = ["cash", "bank", "telebirr"];
+const costTypes = [
+  { value: "variable", label: "Variable operating" },
+  { value: "fixed", label: "Fixed monthly" },
+  { value: "maintenance", label: "Maintenance" },
+  { value: "long_term", label: "Long-term asset" },
+  { value: "other", label: "Other one-time" }
+];
+const recurrences = [
+  { value: "one_time", label: "One time" },
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "yearly", label: "Yearly" }
+];
 
 function localDate(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60_000;
@@ -40,6 +54,15 @@ function csvCell(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
+function optionLabel(options, value) {
+  return options.find((item) => item.value === value)?.label || value || "-";
+}
+
+function allocatedAmount(item) {
+  const months = Math.max(1, Number.parseInt(item.allocation_months, 10) || 1);
+  return item.cost_type === "long_term" ? Number(item.amount || 0) / months : Number(item.amount || 0);
+}
+
 export default function FinancePanel({ reportOnly = false }) {
   const [data, setData] = useState({
     income: [],
@@ -55,6 +78,7 @@ export default function FinancePanel({ reportOnly = false }) {
     to: localDate(),
     type: "all",
     payment_method: "all",
+    cost_type: "all",
     search: ""
   });
   const [preset, setPreset] = useState("month");
@@ -63,6 +87,11 @@ export default function FinancePanel({ reportOnly = false }) {
     amount: "",
     payment_method: "cash",
     expense_date: localDate(),
+    cost_type: "variable",
+    recurrence: "one_time",
+    allocation_months: "1",
+    allocation_start_date: localDate(),
+    allocation_end_date: "",
     notes: ""
   });
   const [loading, setLoading] = useState(reportOnly);
@@ -122,7 +151,7 @@ export default function FinancePanel({ reportOnly = false }) {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to save expense.");
-      setForm((current) => ({ ...current, description: "", amount: "", notes: "" }));
+      setForm((current) => ({ ...current, description: "", amount: "", allocation_months: "1", allocation_end_date: "", notes: "" }));
       setMessage("Expense saved. It is now available in Reports.");
     } catch (error) {
       setMessage(error.message || "Unable to save expense.");
@@ -167,14 +196,17 @@ export default function FinancePanel({ reportOnly = false }) {
 
   function exportCsv() {
     const lines = [
-      ["Type", "Date", "Description", "Payment method", "Amount ETB"].map(csvCell).join(","),
+      ["Type", "Date", "Description", "Cost type", "Recurrence", "Payment method", "Cash amount ETB", "Allocated amount ETB"].map(csvCell).join(","),
       ...rows.map((row) =>
         [
           row.kind,
           String(row.date).slice(0, 10),
           row.description,
+          row.cost_type || "",
+          row.recurrence || "",
           row.payment_method,
-          row.amount
+          row.amount,
+          row.kind === "Expense" ? allocatedAmount(row) : ""
         ]
           .map(csvCell)
           .join(",")
@@ -200,15 +232,73 @@ export default function FinancePanel({ reportOnly = false }) {
               </div>
               <div>
                 <Badge variant="outline">Operations</Badge>
-                <CardTitle>Add daily expense</CardTitle>
+                <CardTitle>Add business expense</CardTitle>
                 <CardDescription>
-                  Record a business expense here. Totals, charts, recent spending, and the detailed ledger are available in Reports.
+                  Record operating, fixed, maintenance, or long-term costs. Reports separate cash spending from allocated monthly cost.
                 </CardDescription>
               </div>
             </CardHeader>
 
             <CardContent>
               <div className="expenseEntryFields">
+                <div className="expenseField">
+                  <Label htmlFor="expense-cost-type">Cost type</Label>
+                  <Select
+                    value={form.cost_type}
+                    onValueChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        cost_type: value,
+                        recurrence: value === "fixed" ? "monthly" : current.recurrence,
+                        allocation_months: value === "long_term" ? current.allocation_months || "12" : "1"
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="expense-cost-type">
+                      <SelectValue placeholder="Select cost type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {costTypes.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="expenseField">
+                  <Label htmlFor="expense-recurrence">Recurrence</Label>
+                  <Select
+                    value={form.recurrence}
+                    onValueChange={(value) => setForm((current) => ({ ...current, recurrence: value }))}
+                  >
+                    <SelectTrigger id="expense-recurrence">
+                      <SelectValue placeholder="Select recurrence" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {recurrences.map((recurrence) => (
+                        <SelectItem key={recurrence.value} value={recurrence.value}>
+                          {recurrence.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.cost_type === "long_term" ? (
+                  <div className="expenseField">
+                    <Label htmlFor="expense-allocation">Spread over months</Label>
+                    <Input
+                      id="expense-allocation"
+                      min="1"
+                      step="1"
+                      required
+                      type="number"
+                      value={form.allocation_months}
+                      placeholder="12"
+                      onChange={(event) => setForm((current) => ({ ...current, allocation_months: event.target.value }))}
+                    />
+                  </div>
+                ) : null}
                 <div className="expenseField">
                   <Label htmlFor="expense-description">Description</Label>
                   <Input
@@ -242,6 +332,17 @@ export default function FinancePanel({ reportOnly = false }) {
                     onChange={(event) => setForm((current) => ({ ...current, expense_date: event.target.value }))}
                   />
                 </div>
+                {form.recurrence !== "one_time" || form.cost_type === "long_term" ? (
+                  <div className="expenseField">
+                    <Label htmlFor="expense-end-date">End date <span>Optional</span></Label>
+                    <Input
+                      id="expense-end-date"
+                      type="date"
+                      value={form.allocation_end_date}
+                      onChange={(event) => setForm((current) => ({ ...current, allocation_end_date: event.target.value }))}
+                    />
+                  </div>
+                ) : null}
                 <div className="expenseField">
                   <Label htmlFor="expense-payment">Payment method</Label>
                   <Select
@@ -357,6 +458,20 @@ export default function FinancePanel({ reportOnly = false }) {
               </SelectContent>
             </Select>
           </div>
+          <div className="financeFilterField">
+            <Label>Cost type</Label>
+            <Select value={filters.cost_type} onValueChange={(value) => setFilters((current) => ({ ...current, cost_type: value }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All cost types</SelectItem>
+                {costTypes.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <label className="financeSearch">
             Search
             <Input
@@ -377,21 +492,27 @@ export default function FinancePanel({ reportOnly = false }) {
         </Card>
         <Card className="financeMetric expense">
           <div className="financeMetricIcon"><TrendingDown size={18} /></div>
-          <span>Expenses</span>
+          <span>Cash expenses</span>
           <strong>{money(data.totals?.expenses)}</strong>
-          <small>Active owner-entered spending</small>
-        </Card>
-        <Card className={`financeMetric profit ${Number(data.totals?.profit) < 0 ? "negative" : ""}`}>
-          <div className="financeMetricIcon"><WalletCards size={18} /></div>
-          <span>Net profit</span>
-          <strong>{money(data.totals?.profit)}</strong>
-          <small>Income minus expenses</small>
+          <small>Actual money paid in this period</small>
         </Card>
         <Card className="financeMetric neutral">
-          <div className="financeMetricIcon"><ReceiptText size={18} /></div>
-          <span>Transactions</span>
-          <strong>{Number(data.totals?.transactions || 0).toLocaleString()}</strong>
-          <small>Matching current filters</small>
+          <div className="financeMetricIcon"><Layers3 size={18} /></div>
+          <span>Allocated cost</span>
+          <strong>{money(data.totals?.allocatedExpenses ?? data.totals?.expenses)}</strong>
+          <small>Long-term assets spread by month</small>
+        </Card>
+        <Card className={`financeMetric profit ${Number(data.totals?.plannedProfit ?? data.totals?.profit) < 0 ? "negative" : ""}`}>
+          <div className="financeMetricIcon"><WalletCards size={18} /></div>
+          <span>Planned profit</span>
+          <strong>{money(data.totals?.plannedProfit ?? data.totals?.profit)}</strong>
+          <small>Income minus allocated costs</small>
+        </Card>
+        <Card className="financeMetric neutral">
+          <div className="financeMetricIcon"><CalendarClock size={18} /></div>
+          <span>Fixed monthly</span>
+          <strong>{money(data.totals?.fixedExpenses)}</strong>
+          <small>Rent, salaries, internet, subscriptions</small>
         </Card>
       </section>
 
@@ -459,7 +580,7 @@ export default function FinancePanel({ reportOnly = false }) {
                     <div key={item.id}>
                       <span>
                         <strong>{item.description}</strong>
-                        <small>{dateLabel(item.expense_date)}</small>
+                        <small>{dateLabel(item.expense_date)} - {optionLabel(costTypes, item.cost_type || "variable")}</small>
                       </span>
                       <strong>{money(item.amount)}</strong>
                     </div>
@@ -487,6 +608,8 @@ export default function FinancePanel({ reportOnly = false }) {
                 <th>Type</th>
                 <th>Date</th>
                 <th>Description</th>
+                <th>Cost type</th>
+                <th>Recurrence</th>
                 <th>Payment</th>
                 <th>Amount</th>
                 <th>Action</th>
@@ -498,14 +621,19 @@ export default function FinancePanel({ reportOnly = false }) {
                   <td><Badge variant={row.kind === "Income" ? "success" : "destructive"}>{row.kind}</Badge></td>
                   <td>{dateLabel(row.date)}</td>
                   <td><strong>{row.description}</strong>{row.notes ? <small>{row.notes}</small> : null}</td>
+                  <td>{row.kind === "Expense" ? optionLabel(costTypes, row.cost_type || "variable") : "-"}</td>
+                  <td>{row.kind === "Expense" ? optionLabel(recurrences, row.recurrence || "one_time") : "-"}</td>
                   <td className="capitalize">{row.payment_method}</td>
                   <td className={row.kind === "Income" ? "incomeValue" : "expenseValue"}>
                     {row.kind === "Income" ? "+" : "-"}{money(row.amount)}
+                    {row.kind === "Expense" && row.cost_type === "long_term" ? (
+                      <small>{money(allocatedAmount(row))}/mo planned</small>
+                    ) : null}
                   </td>
                   <td>{row.kind === "Expense" ? <Button variant="destructive" size="sm" type="button" onClick={() => voidExpense(row.id)}>Void</Button> : null}</td>
                 </tr>
               )) : (
-                <tr><td colSpan={6} className="emptyFinanceTable">No transactions match these filters.</td></tr>
+                <tr><td colSpan={8} className="emptyFinanceTable">No transactions match these filters.</td></tr>
               )}
             </tbody>
           </table>

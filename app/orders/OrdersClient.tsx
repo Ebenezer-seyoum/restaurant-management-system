@@ -570,17 +570,6 @@ export default function OrdersClient() {
                           <strong>{item.name}</strong>
                           <span>{money(item.price)} each</span>
                         </div>
-                        <Button
-                          className="waiterRemoveButton"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => remove(item.id)}
-                          type="button"
-                          aria-label={`Remove ${item.name}`}
-                          title={`Remove ${item.name}`}
-                        >
-                          <X size={16} />
-                        </Button>
                         <div className="waiterCartControls">
                           <div className="waiterQuantity">
                             <Button
@@ -607,6 +596,17 @@ export default function OrdersClient() {
                             {money(item.price * item.quantity)}
                           </strong>
                         </div>
+                        <Button
+                          className="waiterRemoveButton"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => remove(item.id)}
+                          type="button"
+                          aria-label={`Remove ${item.name}`}
+                          title={`Remove ${item.name}`}
+                        >
+                          <X size={16} />
+                        </Button>
                       </div>
                     ))
                   ) : (

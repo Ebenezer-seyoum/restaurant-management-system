@@ -25,8 +25,15 @@ function financeFilters(c) {
     to: c.req.query("to") || "",
     type: c.req.query("type") || "all",
     paymentMethod: c.req.query("payment_method") || "all",
+    costType: c.req.query("cost_type") || "all",
     search: c.req.query("search") || ""
   };
+}
+
+function allocatedExpenseAmount(item) {
+  const amount = Number(item.amount || 0);
+  const months = Math.max(1, Number.parseInt(item.allocation_months, 10) || 1);
+  return item.cost_type === "long_term" ? amount / months : amount;
 }
 
 async function financeResponse(c) {
@@ -37,11 +44,12 @@ async function financeResponse(c) {
   const postgresFinance = await readFinanceFromPostgres(filters);
   if (postgresFinance) return c.json(postgresFinance);
 
-  const { from, to, type, paymentMethod, search } = filters;
+  const { from, to, type, paymentMethod, costType, search } = filters;
   const state = await getLocalState();
   const inRange = (value) => (!from || value >= from) && (!to || value <= to);
-  const matches = (item) =>
+  const matches = (item, isExpense = false) =>
     (paymentMethod === "all" || item.payment_method === paymentMethod) &&
+    (!isExpense || costType === "all" || (item.cost_type || "variable") === costType) &&
     (!search || [item.description, item.notes, item.payment_method].join(" ").toLowerCase().includes(search.toLowerCase()));
   const income = type === "expense" ? [] : (state.income || []).filter((item) =>
     inRange(String(item.transaction_date || item.created_at).slice(0, 10)) && matches(item)
@@ -49,18 +57,36 @@ async function financeResponse(c) {
   const expenses = type === "income" ? [] : (state.expenses || []).filter((item) =>
     item.status !== "voided" &&
     inRange(String(item.expense_date || item.created_at).slice(0, 10)) &&
-    matches(item)
+    matches(item, true)
   );
   const incomeTotal = income.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const expenseTotal = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const allocatedExpenseTotal = expenses.reduce((sum, item) => sum + allocatedExpenseAmount(item), 0);
+  const fixedExpenseTotal = expenses.filter((item) => item.cost_type === "fixed").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const operatingExpenseTotal = expenses.filter((item) => !["fixed", "long_term"].includes(item.cost_type || "variable")).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   return c.json({
     income,
-    expenses,
+    expenses: expenses.map((item) => ({
+      cost_type: "variable",
+      recurrence: "one_time",
+      allocation_months: 1,
+      ...item
+    })),
     daily: [],
     paymentBreakdown: [],
     expenseBreakdown: [],
+    costTypeBreakdown: [],
     bestSellers: [],
-    totals: { income: incomeTotal, expenses: expenseTotal, profit: incomeTotal - expenseTotal, transactions: income.length + expenses.length },
+    totals: {
+      income: incomeTotal,
+      expenses: expenseTotal,
+      allocatedExpenses: allocatedExpenseTotal,
+      fixedExpenses: fixedExpenseTotal,
+      operatingExpenses: operatingExpenseTotal,
+      profit: incomeTotal - expenseTotal,
+      plannedProfit: incomeTotal - allocatedExpenseTotal,
+      transactions: income.length + expenses.length
+    },
     source: "local"
   });
 }
@@ -78,17 +104,28 @@ app.post("/expenses", async (c) => {
   if (!["cash", "bank", "telebirr"].includes(String(body.payment_method || "cash"))) {
     return c.json({ error: "Payment method must be cash, bank, or Telebirr." }, 400);
   }
+  const costType = String(body.cost_type || "variable");
+  const recurrence = String(body.recurrence || "one_time");
+  const allowedCostTypes = ["fixed", "variable", "maintenance", "long_term", "other"];
+  const allowedRecurrences = ["one_time", "daily", "weekly", "monthly", "yearly"];
+  if (!allowedCostTypes.includes(costType)) return c.json({ error: "Select a valid cost type." }, 400);
+  if (!allowedRecurrences.includes(recurrence)) return c.json({ error: "Select a valid recurrence." }, 400);
   const session = getSessionFromRequest(c.req.raw);
   const postgresExpense = await createPostgresExpense(body, session?.id || null);
   if (postgresExpense) return c.json({ expense: postgresExpense }, 201);
   const state = await getLocalState();
   const expense = {
     id: newId("expense"),
-    category: "Operating expense",
+    category: body.category || costType,
     description: body.description,
     amount,
     payment_method: body.payment_method || "cash",
     expense_date: body.expense_date || new Date().toISOString().slice(0, 10),
+    cost_type: costType,
+    recurrence,
+    allocation_months: Math.max(1, Number.parseInt(body.allocation_months, 10) || 1),
+    allocation_start_date: body.allocation_start_date || body.expense_date || new Date().toISOString().slice(0, 10),
+    allocation_end_date: body.allocation_end_date || "",
     notes: body.notes || "",
     receipt_url: body.receipt_url || "",
     status: "active",
