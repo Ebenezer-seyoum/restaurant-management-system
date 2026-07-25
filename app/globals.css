@@ -8001,3 +8001,326 @@ html {
     grid-template-columns: 1fr;
   }
 }
+
+/* Admin workspace visual system inspired by the supplied reference dashboard. */
+:root {
+  --admin-navy: #10192d;
+  --admin-navy-deep: #0b1427;
+  --admin-ink: #12203d;
+  --admin-muted: #71809d;
+  --admin-orange: #f6a817;
+  --admin-purple: #7a3cff;
+  --admin-green: #006b52;
+  --admin-canvas: #f6f8fc;
+  --admin-border: #e1e8f2;
+}
+
+.adminShell {
+  grid-template-columns: 350px minmax(0, 1fr);
+  background: var(--admin-canvas);
+  color: var(--admin-ink);
+}
+
+.adminSidebar {
+  padding: 0;
+  gap: 0;
+  background: var(--admin-navy);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.adminBrandBlock {
+  min-height: 118px;
+  padding: 28px 28px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.adminBrandBlock img {
+  width: 58px;
+  height: 58px;
+  border: 4px solid rgba(255, 255, 255, 0.92);
+}
+
+.adminBrandBlock strong {
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.adminBrandBlock span {
+  margin-top: 5px;
+  color: #a9b5cc;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.adminSideNav {
+  gap: 0;
+  padding: 26px 16px 20px;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.adminNavGroup {
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.adminNavGroupToggle {
+  min-height: 28px !important;
+  padding: 0 12px !important;
+  color: #9eabc4 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.adminNavGroupToggle i {
+  color: #8996b0;
+  font-size: 18px;
+  font-style: normal;
+  letter-spacing: 0;
+}
+
+.adminNavGroupTabs {
+  gap: 4px;
+}
+
+.adminNavGroupTabs button {
+  min-height: 52px;
+  border: 0;
+  border-radius: 0 16px 16px 0;
+  padding: 0 22px;
+  color: #d6deed;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.adminNavGroupTabs button:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.adminNavGroupTabs button.active {
+  position: relative;
+  background: var(--admin-orange);
+  color: #111827;
+  box-shadow: 0 10px 24px rgba(246, 168, 23, 0.2);
+}
+
+.adminNavGroupTabs button.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  border-radius: 0 5px 5px 0;
+  background: #ffd36b;
+}
+
+.adminNavGroupTabs button small {
+  min-width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--admin-navy);
+  font-size: 11px;
+}
+
+.adminSidebarFooter {
+  margin: 18px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.adminSidebarFooter span {
+  color: #8e9cb8;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.adminSidebarFooter strong {
+  margin-top: 4px;
+  font-size: 16px;
+}
+
+.adminSidebarFooter .buttonLine {
+  border-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  color: #fff;
+}
+
+.adminMain {
+  padding: 0 38px 56px;
+  background: var(--admin-canvas);
+}
+
+.adminTopbar {
+  position: relative;
+  min-height: 164px;
+  align-items: center;
+  margin: 0 -38px 34px;
+  padding: 30px 46px;
+  border: 0;
+  border-radius: 0;
+  background: var(--admin-navy);
+  color: #fff;
+  box-shadow: 0 16px 34px rgba(16, 25, 45, 0.18);
+}
+
+.adminTopbar .eyebrow,
+.adminContentHeader .eyebrow {
+  color: var(--admin-orange);
+  letter-spacing: 0.32em;
+}
+
+.adminTopbar h1 {
+  margin: 4px 0 8px;
+  color: #fff;
+  font-size: clamp(38px, 4vw, 56px);
+  letter-spacing: -0.04em;
+}
+
+.adminTopbar p:not(.eyebrow) {
+  color: #aebbd1;
+}
+
+.adminTopActions .buttonLine {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.adminTopActions .buttonDark {
+  border-radius: 10px;
+  background: var(--admin-orange);
+  color: #101827;
+}
+
+.metricGrid {
+  gap: 18px;
+  margin-bottom: 34px;
+}
+
+.adminMetricCard {
+  min-height: 148px;
+  border: 1px solid var(--admin-border);
+  border-radius: 20px;
+  padding: 22px;
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(25, 42, 72, 0.06);
+}
+
+.adminMetricCard span,
+.adminMetricCard small {
+  color: var(--admin-muted);
+}
+
+.adminMetricCard strong {
+  color: var(--admin-ink);
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  font-size: 44px;
+  font-weight: 900;
+}
+
+.adminContentHeader {
+  margin-bottom: 20px;
+}
+
+.adminContentHeader h2 {
+  color: var(--admin-ink);
+  font-size: clamp(30px, 3vw, 42px);
+  letter-spacing: -0.04em;
+}
+
+.adminMain .panel,
+.adminTableWrap,
+.adminStatus,
+.adminTopbar + .metricGrid + .adminContentHeader + .adminStack > .panel {
+  border-color: var(--admin-border);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(25, 42, 72, 0.055);
+}
+
+.adminPanelHead {
+  margin-bottom: 22px;
+}
+
+.adminPanelHead h2,
+.adminMain .panel h2 {
+  color: var(--admin-ink);
+  letter-spacing: -0.03em;
+}
+
+.adminMain label {
+  color: #586985;
+  font-weight: 800;
+}
+
+.adminMain input,
+.adminMain select,
+.adminMain textarea {
+  border-color: #d8e0ec;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--admin-ink);
+}
+
+.adminMain input:focus,
+.adminMain select:focus,
+.adminMain textarea:focus {
+  outline: 2px solid rgba(122, 60, 255, 0.35);
+  outline-offset: 2px;
+  border-color: var(--admin-purple);
+}
+
+.adminMain .buttonGold {
+  background: var(--admin-orange);
+  color: #111827;
+}
+
+.adminMain .buttonDark {
+  background: var(--admin-green);
+  color: #fff;
+}
+
+.adminMain .buttonLine {
+  border-color: #d8e0ec;
+  background: #fff;
+  color: var(--admin-ink);
+}
+
+.adminMain .adminTable th {
+  background: #f3f6fb;
+  color: #71809d;
+}
+
+.adminMain .adminTable td {
+  color: #344563;
+}
+
+.adminMain .adminHelpText,
+.adminMain .contactText {
+  color: var(--admin-muted);
+}
+
+@media (max-width: 980px) {
+  .adminShell {
+    grid-template-columns: 1fr;
+  }
+
+  .adminSidebar {
+    position: static;
+    height: auto;
+  }
+
+  .adminMain {
+    padding: 0 18px 36px;
+  }
+
+  .adminTopbar {
+    margin: 0 -18px 26px;
+    padding: 28px 24px;
+  }
+}
