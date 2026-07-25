@@ -10018,3 +10018,50 @@ html {
     flex-direction: column;
   }
 }
+
+/* Final placement guard: sidebar left, workspace content right. */
+@media (min-width: 1051px) {
+  .adminShell {
+    direction: ltr;
+    grid-template-columns: 304px minmax(0, 1fr);
+    grid-template-areas: "sidebar main";
+  }
+
+  .adminSidebar {
+    grid-area: sidebar;
+    grid-column: 1;
+    grid-row: 1;
+    left: 0;
+    right: auto;
+  }
+
+  .adminMain {
+    grid-area: main;
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+  }
+}
+
+@media (max-width: 1050px) {
+  .adminShell {
+    direction: ltr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "sidebar"
+      "main";
+  }
+
+  .adminSidebar {
+    grid-area: sidebar;
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .adminMain {
+    grid-area: main;
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+  }
+}
