@@ -5817,76 +5817,147 @@ html {
   color: rgba(247, 239, 226, 0.76);
 }
 
-/* Login is intentionally scoped so late public-theme rules cannot reduce contrast. */
+/* Login is intentionally standalone: no public header, navigation, or footer. */
 .loginPage {
-  min-height: 620px;
-  background: linear-gradient(180deg, #0b0805, #15100a);
-}
-
-.loginPage .pageHero {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 18px;
   background:
-    linear-gradient(90deg, rgba(3, 16, 29, 0.98), rgba(3, 16, 29, 0.78)),
+    linear-gradient(135deg, rgba(3, 16, 29, 0.96), rgba(11, 8, 5, 0.94)),
     url("/uploads/house/interior-08.jpg") center / cover;
 }
 
-.loginPage .pageHero h1,
-.loginPage .pageHero .pageLead {
-  color: #f7efe2;
-}
-
-.loginPage .formWrap {
-  background: linear-gradient(180deg, #0b0805, #15100a);
-}
-
-.loginPage .formWrap > .panel,
-.loginPage .formWrap > .formPanel {
+.loginCard {
+  width: min(100%, 470px);
+  padding: clamp(28px, 6vw, 52px);
   border: 1px solid rgba(216, 168, 62, 0.58);
-  background: linear-gradient(145deg, #03101d, #071523);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(3, 16, 29, 0.98), rgba(7, 21, 35, 0.96));
   color: #f7efe2;
-  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.42);
 }
 
-.loginPage .formWrap > .panel h2,
-.loginPage .formWrap > .panel .contactText,
-.loginPage .formWrap > .formPanel h2 {
+.loginBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 42px;
+}
+
+.loginLogoShell {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(216, 168, 62, 0.78);
+  border-radius: 50%;
+}
+
+.loginLogoShell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.loginBrand strong,
+.loginBrand small {
+  display: block;
+}
+
+.loginBrand strong {
   color: #f7efe2;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
 }
 
-.loginPage .formWrap > .panel h2 {
-  font-size: clamp(34px, 5vw, 64px);
-  line-height: 1.02;
+.loginBrand small {
+  margin-top: 4px;
+  color: #d8a83e;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.loginPage .formWrap > .panel .contactText {
-  color: rgba(247, 239, 226, 0.78);
+.loginIntro {
+  margin-bottom: 28px;
 }
 
-.loginPage .formPanel label {
+.loginIntro .eyebrow {
+  color: #d8a83e;
+}
+
+.loginIntro h1 {
+  margin: 0 0 12px;
+  color: #f7efe2;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(36px, 7vw, 52px);
+  line-height: 1;
+}
+
+.loginIntro > p:last-child {
+  margin: 0;
+  color: rgba(247, 239, 226, 0.72);
+  line-height: 1.6;
+}
+
+.loginForm {
+  display: grid;
+  gap: 18px;
+}
+
+.loginForm label {
+  display: grid;
+  gap: 8px;
   color: #f7efe2;
   font-weight: 800;
 }
 
-.loginPage .formPanel input {
+.loginForm input {
+  width: 100%;
   min-height: 54px;
-  border-color: rgba(216, 168, 62, 0.5);
+  border: 1px solid rgba(216, 168, 62, 0.5);
+  border-radius: 8px;
+  padding: 0 14px;
   background: #020b14;
   color: #fffaf1;
+  font: inherit;
 }
 
-.loginPage .formPanel input::placeholder {
+.loginForm input:focus {
+  outline: 2px solid #d8a83e;
+  outline-offset: 2px;
+}
+
+.loginForm input::placeholder {
   color: rgba(247, 239, 226, 0.48);
 }
 
-.loginPage .formPanel .buttonGold {
+.loginForm .buttonGold {
   min-height: 54px;
+  margin-top: 6px;
   color: #0b0805;
   font-weight: 900;
 }
 
-.loginPage .loginStatus {
-  margin: 4px 0 0;
+.loginStatus {
+  margin: 0;
   color: #f0c761;
   font-weight: 700;
+}
+
+.loginBackHome {
+  display: block;
+  margin-top: 28px;
+  color: #d8a83e;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.loginBackHome:hover {
+  color: #f7efe2;
 }
 
 /* shadcn-style primitives used by the reorganized admin surfaces. */

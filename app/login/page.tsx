@@ -1,15 +1,13 @@
 // @ts-nocheck
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Footer, Header } from "../shared";
-import { brand as defaultBrand, footerSettings, loginPageSettings } from "@/lib/data";
+import { brand as defaultBrand, loginPageSettings } from "@/lib/data";
 
 export default function LoginPage() {
-  const [mode, setMode] = useState("login");
   const [status, setStatus] = useState("");
   const [brand, setBrand] = useState(defaultBrand);
-  const [footer, setFooter] = useState(footerSettings);
   const [pageText, setPageText] = useState(loginPageSettings);
 
   useEffect(() => {
@@ -17,7 +15,6 @@ export default function LoginPage() {
       .then((response) => response.json())
       .then((data) => {
         setBrand({ ...defaultBrand, ...(data.brand || {}) });
-        setFooter({ ...footerSettings, ...(data.footer || {}) });
         setPageText({ ...loginPageSettings, ...(data.loginPage || {}) });
       })
       .catch(() => undefined);
@@ -25,11 +22,11 @@ export default function LoginPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setStatus(mode === "login" ? pageText.checkingMessage : pageText.creatingMessage);
+    setStatus(pageText.checkingMessage);
 
     const formData = new FormData(event.currentTarget);
     try {
-      const response = await fetch(mode === "login" ? "/api/auth/login" : "/api/auth/register", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(Object.fromEntries(formData.entries()))
@@ -48,63 +45,42 @@ export default function LoginPage() {
   }
 
   return (
-    <>
-      <Header brandData={brand} />
-      <main className="loginPage">
-        <section className="pageHero">
+    <main className="loginPage">
+      <div className="loginCard" aria-labelledby="login-title">
+        <Link className="loginBrand" href="/" aria-label={`${brand.name} home`}>
+          <span className="loginLogoShell">
+            <img src={brand.logoImage || "/logo.png"} alt="" />
+          </span>
+          <span>
+            <strong>{brand.name}</strong>
+            <small>{brand.subtitle}</small>
+          </span>
+        </Link>
+
+        <div className="loginIntro">
           <p className="eyebrow">{pageText.eyebrow}</p>
-          <h1>{pageText.headline}</h1>
-          <p className="pageLead">{pageText.description}</p>
-        </section>
-        <section className="section formWrap">
-          <div className="panel">
-            <h2>{mode === "login" ? pageText.loginPanelTitle : pageText.registerPanelTitle}</h2>
-            <p className="contactText">{pageText.panelText}</p>
-          </div>
-          <div className="formPanel">
-            <div className="authSwitch" aria-label="Account mode">
-              <button className={mode === "login" ? "active" : ""} type="button" onClick={() => setMode("login")}>
-                {pageText.loginTabLabel}
-              </button>
-              <button
-                className={mode === "register" ? "active" : ""}
-                type="button"
-                onClick={() => setMode("register")}
-              >
-                {pageText.registerTabLabel}
-              </button>
-            </div>
-            <form onSubmit={handleSubmit}>
-              {mode === "register" ? (
-                <>
-                  <label>
-                    {pageText.nameLabel}
-                    <input name="name" required placeholder={pageText.namePlaceholder} />
-                  </label>
-                  <label>
-                    {pageText.phoneLabel}
-                    <input name="phone" placeholder={pageText.phonePlaceholder} />
-                  </label>
-                </>
-              ) : null}
-              <label>
-                {pageText.emailLabel}
-                <input name="email" type="email" required placeholder={mode === "login" ? pageText.loginEmailPlaceholder : pageText.registerEmailPlaceholder} />
-              </label>
-              <label>
-                {pageText.passwordLabel}
-                <input name="password" type="password" required placeholder={mode === "register" ? pageText.registerPasswordPlaceholder : pageText.loginPasswordPlaceholder} />
-              </label>
-              <button className="button buttonGold" type="submit">
-                {mode === "login" ? pageText.loginButtonLabel : pageText.registerButtonLabel}
-              </button>
-              {status ? <p className="loginStatus" role="status">{status}</p> : null}
-            </form>
-          </div>
-        </section>
-      </main>
-      <Footer brandData={brand} footerData={footer} />
-    </>
+          <h1 id="login-title">{pageText.loginTabLabel || "Login"}</h1>
+          <p>{pageText.description}</p>
+        </div>
+
+        <form className="loginForm" onSubmit={handleSubmit}>
+          <label>
+            {pageText.emailLabel}
+            <input name="email" type="email" required placeholder={pageText.loginEmailPlaceholder} autoComplete="email" />
+          </label>
+          <label>
+            {pageText.passwordLabel}
+            <input name="password" type="password" required placeholder={pageText.loginPasswordPlaceholder} autoComplete="current-password" />
+          </label>
+          <button className="button buttonGold" type="submit">
+            {pageText.loginButtonLabel}
+          </button>
+          {status ? <p className="loginStatus" role="status">{status}</p> : null}
+        </form>
+
+        <Link className="loginBackHome" href="/">← Back Home</Link>
+      </div>
+    </main>
   );
 }
 
