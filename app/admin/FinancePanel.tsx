@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 const paymentMethods = ["cash", "bank", "telebirr"];
 
@@ -63,7 +65,8 @@ export default function FinancePanel({ reportOnly = false }) {
     expense_date: localDate(),
     notes: ""
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(reportOnly);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   async function loadFinance(nextFilters = filters) {
@@ -87,6 +90,7 @@ export default function FinancePanel({ reportOnly = false }) {
   }
 
   useEffect(() => {
+    if (!reportOnly) return undefined;
     const timer = window.setTimeout(() => loadFinance(filters), 180);
     return () => window.clearTimeout(timer);
   }, [filters, reportOnly]);
@@ -108,20 +112,23 @@ export default function FinancePanel({ reportOnly = false }) {
 
   async function addExpense(event) {
     event.preventDefault();
+    setSaving(true);
     setMessage("Saving expense...");
-    const response = await fetch("/api/hono/expenses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form)
-    });
-    const result = await response.json();
-    if (!response.ok) {
-      setMessage(result.error || "Unable to save expense.");
-      return;
+    try {
+      const response = await fetch("/api/hono/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form)
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save expense.");
+      setForm((current) => ({ ...current, description: "", amount: "", notes: "" }));
+      setMessage("Expense saved. It is now available in Reports.");
+    } catch (error) {
+      setMessage(error.message || "Unable to save expense.");
+    } finally {
+      setSaving(false);
     }
-    setForm((current) => ({ ...current, description: "", amount: "", notes: "" }));
-    setMessage("Expense saved.");
-    await loadFinance();
   }
 
   async function voidExpense(id) {
@@ -182,13 +189,110 @@ export default function FinancePanel({ reportOnly = false }) {
     URL.revokeObjectURL(url);
   }
 
+  if (!reportOnly) {
+    return (
+      <div className="expenseOnlyWorkspace">
+        <Card className="expenseOnlyCard">
+          <form onSubmit={addExpense}>
+            <CardHeader className="expenseOnlyHeader">
+              <div className="expenseEntryHeaderIcon" aria-hidden="true">
+                <ReceiptText size={24} />
+              </div>
+              <div>
+                <Badge variant="outline">Operations</Badge>
+                <CardTitle>Add daily expense</CardTitle>
+                <CardDescription>
+                  Record a business expense here. Totals, charts, recent spending, and the detailed ledger are available in Reports.
+                </CardDescription>
+              </div>
+            </CardHeader>
+
+            <CardContent>
+              <div className="expenseEntryFields">
+                <div className="expenseField">
+                  <Label htmlFor="expense-description">Description</Label>
+                  <Input
+                    id="expense-description"
+                    required
+                    value={form.description}
+                    placeholder="e.g. TV maintenance"
+                    onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                  />
+                </div>
+                <div className="expenseField">
+                  <Label htmlFor="expense-amount">Amount (ETB)</Label>
+                  <Input
+                    id="expense-amount"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    type="number"
+                    value={form.amount}
+                    placeholder="500"
+                    onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+                  />
+                </div>
+                <div className="expenseField">
+                  <Label htmlFor="expense-date">Expense date</Label>
+                  <Input
+                    id="expense-date"
+                    required
+                    type="date"
+                    value={form.expense_date}
+                    onChange={(event) => setForm((current) => ({ ...current, expense_date: event.target.value }))}
+                  />
+                </div>
+                <div className="expenseField">
+                  <Label htmlFor="expense-payment">Payment method</Label>
+                  <Select
+                    value={form.payment_method}
+                    onValueChange={(value) => setForm((current) => ({ ...current, payment_method: value }))}
+                  >
+                    <SelectTrigger id="expense-payment">
+                      <SelectValue placeholder="Select payment method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map((method) => (
+                        <SelectItem key={method} value={method}>
+                          {method.charAt(0).toUpperCase() + method.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="expenseField expenseNotesField">
+                  <Label htmlFor="expense-notes">Notes <span>Optional</span></Label>
+                  <Textarea
+                    id="expense-notes"
+                    value={form.notes}
+                    placeholder="Add a receipt reference or any useful details..."
+                    onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
+                  />
+                </div>
+              </div>
+            </CardContent>
+
+            <CardFooter className="expenseOnlyFooter">
+              <div aria-live="polite" className={`financeMessage ${message.startsWith("Expense saved") ? "success" : ""}`}>
+                {message || "The entry will appear immediately the next time you open Reports."}
+              </div>
+              <Button variant="gold" size="lg" type="submit" disabled={saving}>
+                <Plus size={17} /> {saving ? "Saving expense..." : "Save expense"}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="financeWorkspace">
       <Card className="financeToolbar">
         <div className="financeToolbarTitle">
-          <p className="eyebrow">{reportOnly ? "Business reporting" : "Owner finance control"}</p>
-          <h2>{reportOnly ? "Profit and performance report" : "Income and expense management"}</h2>
-          <p>Finished waiter orders become income automatically. Add operating expenses manually.</p>
+          <p className="eyebrow">Business reporting</p>
+          <h2>Profit and performance report</h2>
+          <p>Review finished-order income and owner-entered expenses in one report.</p>
         </div>
         <Button variant="outline" size="sm" type="button" onClick={exportCsv}>
           <Download size={15} /> Export CSV
@@ -228,21 +332,31 @@ export default function FinancePanel({ reportOnly = false }) {
               }}
             />
           </label>
-          <label>
-            Transaction
-            <select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}>
-              <option value="all">Income & expenses</option>
-              <option value="income">Income only</option>
-              <option value="expense">Expenses only</option>
-            </select>
-          </label>
-          <label>
-            Payment
-            <select value={filters.payment_method} onChange={(event) => setFilters((current) => ({ ...current, payment_method: event.target.value }))}>
-              <option value="all">All payments</option>
-              {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
-            </select>
-          </label>
+          <div className="financeFilterField">
+            <Label>Transaction</Label>
+            <Select value={filters.type} onValueChange={(value) => setFilters((current) => ({ ...current, type: value }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Income &amp; expenses</SelectItem>
+                <SelectItem value="income">Income only</SelectItem>
+                <SelectItem value="expense">Expenses only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="financeFilterField">
+            <Label>Payment</Label>
+            <Select value={filters.payment_method} onValueChange={(value) => setFilters((current) => ({ ...current, payment_method: value }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All payments</SelectItem>
+                {paymentMethods.map((method) => (
+                  <SelectItem key={method} value={method}>
+                    {method.charAt(0).toUpperCase() + method.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <label className="financeSearch">
             Search
             <Input
@@ -281,87 +395,6 @@ export default function FinancePanel({ reportOnly = false }) {
         </Card>
       </section>
 
-      {!reportOnly ? (
-        <section className="financeEntryGrid">
-          <Card className="expenseEntryCard">
-            <form onSubmit={addExpense}>
-            <div>
-              <p className="eyebrow">New spending</p>
-              <h2>Add daily expense</h2>
-              <p>Example: TV maintenance — 500 ETB.</p>
-            </div>
-            <div className="expenseEntryFields">
-              <label>
-                Description
-                <Input
-                  required
-                  value={form.description}
-                  placeholder="TV maintenance"
-                  onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                />
-              </label>
-              <label>
-                Amount (ETB)
-                <Input
-                  min="0.01"
-                  step="0.01"
-                  required
-                  type="number"
-                  value={form.amount}
-                  placeholder="500"
-                  onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-                />
-              </label>
-              <label>
-                Expense date
-                <Input
-                  required
-                  type="date"
-                  value={form.expense_date}
-                  onChange={(event) => setForm((current) => ({ ...current, expense_date: event.target.value }))}
-                />
-              </label>
-              <label>
-                Payment method
-                <select
-                  value={form.payment_method}
-                  onChange={(event) => setForm((current) => ({ ...current, payment_method: event.target.value }))}
-                >
-                  {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
-                </select>
-              </label>
-              <label>
-                Notes
-                <Input
-                  value={form.notes}
-                  placeholder="Optional details"
-                  onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
-                />
-              </label>
-            </div>
-            <Button variant="gold" type="submit"><Plus size={16} /> Save expense</Button>
-            </form>
-          </Card>
-
-          <Card className="financeSnapshot">
-            <CardContent>
-            <p className="eyebrow">Recent spending</p>
-            <h2>Latest expenses</h2>
-            {(data.expenses || []).length ? (
-              <div className="breakdownList">
-                {data.expenses.slice(0, 6).map((item) => (
-                  <div key={item.id}>
-                    <span>{item.description}</span>
-                    <strong>{money(item.amount)}</strong>
-                  </div>
-                ))}
-              </div>
-            ) : <p className="mutedText">No expenses match this period.</p>}
-            </CardContent>
-          </Card>
-        </section>
-      ) : null}
-
       <section className="financeReportGrid">
         <Card className="financeChartCard">
           <CardContent>
@@ -389,27 +422,53 @@ export default function FinancePanel({ reportOnly = false }) {
           </CardContent>
         </Card>
 
-        <Card className="bestSellerCard">
-          <CardContent>
-          <div className="financeCardHeading">
-            <div>
-              <p className="eyebrow">Menu performance</p>
-              <h2>Best sellers</h2>
+        <div className="financeReportSideStack">
+          <Card className="bestSellerCard">
+            <CardContent>
+            <div className="financeCardHeading">
+              <div>
+                <p className="eyebrow">Menu performance</p>
+                <h2>Best sellers</h2>
+              </div>
             </div>
-          </div>
-          {(data.bestSellers || []).length ? (
-            <div className="bestSellerList">
-              {data.bestSellers.slice(0, 6).map((item, index) => (
-                <div key={item.name}>
-                  <b>{index + 1}</b>
-                  <span><strong>{item.name}</strong><small>{item.quantity} sold</small></span>
-                  <em>{money(item.revenue)}</em>
+            {(data.bestSellers || []).length ? (
+              <div className="bestSellerList">
+                {data.bestSellers.slice(0, 6).map((item, index) => (
+                  <div key={item.name}>
+                    <b>{index + 1}</b>
+                    <span><strong>{item.name}</strong><small>{item.quantity} sold</small></span>
+                    <em>{money(item.revenue)}</em>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="mutedText">Finished orders will show best-selling items here.</p>}
+            </CardContent>
+          </Card>
+
+          <Card className="financeSnapshot">
+            <CardContent>
+              <div className="financeCardHeading">
+                <div>
+                  <p className="eyebrow">Recent spending</p>
+                  <h2>Latest expenses</h2>
                 </div>
-              ))}
-            </div>
-          ) : <p className="mutedText">Finished orders will show best-selling items here.</p>}
-          </CardContent>
-        </Card>
+              </div>
+              {(data.expenses || []).length ? (
+                <div className="breakdownList">
+                  {data.expenses.slice(0, 6).map((item) => (
+                    <div key={item.id}>
+                      <span>
+                        <strong>{item.description}</strong>
+                        <small>{dateLabel(item.expense_date)}</small>
+                      </span>
+                      <strong>{money(item.amount)}</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="mutedText">No expenses match this period.</p>}
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       <Card className="financeTransactions">
@@ -430,7 +489,7 @@ export default function FinancePanel({ reportOnly = false }) {
                 <th>Description</th>
                 <th>Payment</th>
                 <th>Amount</th>
-                {!reportOnly ? <th /> : null}
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -443,12 +502,10 @@ export default function FinancePanel({ reportOnly = false }) {
                   <td className={row.kind === "Income" ? "incomeValue" : "expenseValue"}>
                     {row.kind === "Income" ? "+" : "-"}{money(row.amount)}
                   </td>
-                  {!reportOnly ? (
-                    <td>{row.kind === "Expense" ? <Button variant="destructive" size="sm" type="button" onClick={() => voidExpense(row.id)}>Void</Button> : null}</td>
-                  ) : null}
+                  <td>{row.kind === "Expense" ? <Button variant="destructive" size="sm" type="button" onClick={() => voidExpense(row.id)}>Void</Button> : null}</td>
                 </tr>
               )) : (
-                <tr><td colSpan={reportOnly ? 5 : 6} className="emptyFinanceTable">No transactions match these filters.</td></tr>
+                <tr><td colSpan={6} className="emptyFinanceTable">No transactions match these filters.</td></tr>
               )}
             </tbody>
           </table>

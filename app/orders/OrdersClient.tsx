@@ -3,7 +3,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Banknote,
   Check,
   CheckCircle2,
   ChefHat,
@@ -51,7 +50,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { menuCategories, menuItems } from "@/lib/data";
 import {
@@ -62,25 +61,6 @@ import {
 const money = (value) =>
   `${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} ETB`;
 
-const statusFlow = {
-  pending: {
-    label: "Pending",
-    icon: Clock3,
-    badge: "warning"
-  },
-  finished: {
-    label: "Finished",
-    icon: CheckCircle2,
-    badge: "success"
-  },
-  cancelled: {
-    label: "Cancelled",
-    icon: XCircle,
-    badge: "destructive"
-  }
-};
-
-const statuses = Object.keys(statusFlow);
 const paymentOptions = [
   { value: "cash", label: "Cash" },
   { value: "bank", label: "Bank transfer" },
@@ -128,7 +108,6 @@ function paymentLabel(value) {
 export default function OrdersClient() {
   const [table, setTable] = useState("1");
   const [category, setCategory] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("pending");
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
   const [liveCategories, setLiveCategories] = useState(menuCategories);
@@ -227,16 +206,8 @@ export default function OrdersClient() {
     (sum, item) => sum + Number(item.price || 0) * item.quantity,
     0
   );
-  const visibleOrders = orders.filter(
-    (order) => String(order.status || "pending") === statusFilter
-  );
-  const counts = Object.fromEntries(
-    statuses.map((status) => [
-      status,
-      orders.filter(
-        (order) => String(order.status || "pending") === status
-      ).length
-    ])
+  const pendingOrders = orders.filter(
+    (order) => String(order.status || "pending") === "pending"
   );
 
   function add(item, section) {
@@ -305,7 +276,6 @@ export default function OrdersClient() {
 
       setMessage(`Table ${table} order sent successfully.`);
       setCart([]);
-      setStatusFilter("pending");
       await loadOrders();
     } catch (error) {
       setMessage(error.message || "Unable to submit order.");
@@ -347,6 +317,9 @@ export default function OrdersClient() {
         nextStatus === "finished"
           ? "Order finished and recorded as income."
           : "Order cancelled."
+      );
+      setOrders((current) =>
+        current.filter((currentOrder) => String(currentOrder.id) !== String(order.id))
       );
       await loadOrders();
       return true;
@@ -682,173 +655,112 @@ export default function OrdersClient() {
           </Card>
 
           <Card className="waiterQueue">
-            <Tabs
-              value={statusFilter}
-              onValueChange={setStatusFilter}
-              className="waiterQueueTabs"
-            >
-              <CardHeader className="waiterQueueHeader">
-                <div>
-                  <CardTitle>Order Queue</CardTitle>
-                  <CardDescription>
-                    Finish or cancel pending table orders.
-                  </CardDescription>
-                </div>
-                <TabsList className="waiterStatusTabs">
-                  {statuses.map((status) => {
-                    const flow = statusFlow[status];
-                    const Icon = flow.icon;
+            <CardHeader className="waiterQueueHeader">
+              <div>
+                <CardTitle>Pending Orders</CardTitle>
+                <CardDescription>
+                  Finish or cancel active table orders.
+                </CardDescription>
+              </div>
+              <Badge className="waiterPendingCount" variant="warning">
+                <Clock3 size={13} />
+                {pendingOrders.length} pending
+              </Badge>
+            </CardHeader>
+
+            <ScrollArea className="waiterQueueScroll">
+              <CardContent className="waiterQueueList">
+                {pendingOrders.length ? (
+                  pendingOrders.map((order) => {
+                    const isUpdating = actionBusy.startsWith(`${order.id}:`);
+
                     return (
-                      <TabsTrigger value={status} key={status}>
-                        <Icon size={14} />
-                        {flow.label}
-                        <span>{counts[status] || 0}</span>
-                      </TabsTrigger>
+                      <Card className="waiterQueueCard" key={order.id}>
+                        <CardHeader className="waiterQueueCardHeader">
+                          <div className="waiterQueueIdentity">
+                            <span className="waiterQueueNumber">
+                              <Store size={15} />
+                              <b>
+                                #{String(order.id).slice(-4).toUpperCase()}
+                              </b>
+                            </span>
+                            <div>
+                              <strong>Table {order.table_number || "-"}</strong>
+                              <small>
+                                <Clock3 size={12} />
+                                {elapsedTime(order.created_at)}
+                              </small>
+                            </div>
+                          </div>
+                          <Badge variant="warning">
+                            <Clock3 size={13} /> Pending
+                          </Badge>
+                        </CardHeader>
+
+                        <CardContent className="waiterQueueCardContent">
+                          <div className="waiterQueueItems">
+                            {orderLines(order).map((item, index) => (
+                              <div key={item.id || `${item.name}-${index}`}>
+                                <span>{item.name}</span>
+                                <strong>×{item.quantity}</strong>
+                              </div>
+                            ))}
+                          </div>
+
+                          <Separator />
+
+                          <div className="waiterQueueMeta">
+                            <div>
+                              <span>Total</span>
+                              <strong>{money(order.total_amount)}</strong>
+                            </div>
+                            <div>
+                              <span>Payment</span>
+                              <strong>Select when finishing</strong>
+                            </div>
+                          </div>
+
+                          {order.notes ? (
+                            <p className="waiterOrderNote">
+                              <ReceiptText size={14} />
+                              {order.notes}
+                            </p>
+                          ) : null}
+                        </CardContent>
+
+                        <CardFooter className="waiterOrderActions">
+                          <Button
+                            variant="destructive"
+                            disabled={isUpdating}
+                            onClick={() => {
+                              setCancelOrder(order);
+                              setCancelReason("");
+                            }}
+                            type="button"
+                          >
+                            <Trash2 size={15} /> Cancel
+                          </Button>
+                          <Button
+                            variant="success"
+                            disabled={isUpdating}
+                            onClick={() => openFinishDialog(order)}
+                            type="button"
+                          >
+                            <Check size={16} /> Finish
+                          </Button>
+                        </CardFooter>
+                      </Card>
                     );
-                  })}
-                </TabsList>
-              </CardHeader>
-
-              {statuses.map((status) => (
-                <TabsContent value={status} key={status}>
-                  <ScrollArea className="waiterQueueScroll">
-                    <CardContent className="waiterQueueList">
-                      {visibleOrders.length ? (
-                        visibleOrders.map((order) => {
-                          const flow =
-                            statusFlow[order.status] || statusFlow.pending;
-                          const FlowIcon = flow.icon;
-                          const isUpdating = actionBusy.startsWith(
-                            `${order.id}:`
-                          );
-
-                          return (
-                            <Card className="waiterQueueCard" key={order.id}>
-                              <CardHeader className="waiterQueueCardHeader">
-                                <div className="waiterQueueIdentity">
-                                  <span className="waiterQueueNumber">
-                                    <Store size={15} />
-                                    <b>
-                                      #
-                                      {String(order.id)
-                                        .slice(-4)
-                                        .toUpperCase()}
-                                    </b>
-                                  </span>
-                                  <div>
-                                    <strong>
-                                      Table {order.table_number || "-"}
-                                    </strong>
-                                    <small>
-                                      <Clock3 size={12} />
-                                      {elapsedTime(order.created_at)}
-                                    </small>
-                                  </div>
-                                </div>
-                                <Badge variant={flow.badge}>
-                                  <FlowIcon size={13} /> {flow.label}
-                                </Badge>
-                              </CardHeader>
-
-                              <CardContent className="waiterQueueCardContent">
-                                <div className="waiterQueueItems">
-                                  {orderLines(order).map((item, index) => (
-                                    <div key={item.id || `${item.name}-${index}`}>
-                                      <span>{item.name}</span>
-                                      <strong>×{item.quantity}</strong>
-                                    </div>
-                                  ))}
-                                </div>
-
-                                <Separator />
-
-                                <div className="waiterQueueMeta">
-                                  <div>
-                                    <span>Total</span>
-                                    <strong>{money(order.total_amount)}</strong>
-                                  </div>
-                                  <div>
-                                    <span>Payment</span>
-                                    <strong>
-                                      {order.status === "pending"
-                                        ? "Select when finishing"
-                                        : paymentLabel(order.payment_method)}
-                                    </strong>
-                                  </div>
-                                </div>
-
-                                {order.notes ? (
-                                  <p className="waiterOrderNote">
-                                    <ReceiptText size={14} />
-                                    {order.notes}
-                                  </p>
-                                ) : null}
-                                {order.status === "cancelled" ? (
-                                  <p className="waiterCancelReason">
-                                    <XCircle size={14} />
-                                    {order.cancel_reason ||
-                                      "No cancellation reason provided"}
-                                  </p>
-                                ) : null}
-                              </CardContent>
-
-                              {order.status === "pending" ? (
-                                <CardFooter className="waiterOrderActions">
-                                  <Button
-                                    variant="destructive"
-                                    disabled={isUpdating}
-                                    onClick={() => {
-                                      setCancelOrder(order);
-                                      setCancelReason("");
-                                    }}
-                                    type="button"
-                                  >
-                                    <Trash2 size={15} /> Cancel
-                                  </Button>
-                                  <Button
-                                    variant="success"
-                                    disabled={isUpdating}
-                                    onClick={() => openFinishDialog(order)}
-                                    type="button"
-                                  >
-                                    <Check size={16} /> Finish
-                                  </Button>
-                                </CardFooter>
-                              ) : (
-                                <CardFooter
-                                  className={`waiterResolution ${
-                                    order.status === "cancelled"
-                                      ? "cancelled"
-                                      : "finished"
-                                  }`}
-                                >
-                                  {order.status === "cancelled" ? (
-                                    <XCircle size={15} />
-                                  ) : (
-                                    <Banknote size={15} />
-                                  )}
-                                  {order.status === "cancelled"
-                                    ? "Order cancelled"
-                                    : "Recorded in income"}
-                                </CardFooter>
-                              )}
-                            </Card>
-                          );
-                        })
-                      ) : (
-                        <div className="waiterEmptyQueue">
-                          <CircleOff size={27} />
-                          <strong>
-                            No {statusFlow[status].label.toLowerCase()} orders
-                          </strong>
-                          <span>Orders in this status will appear here.</span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </ScrollArea>
-                </TabsContent>
-              ))}
-            </Tabs>
+                  })
+                ) : (
+                  <div className="waiterEmptyQueue">
+                    <CheckCircle2 size={27} />
+                    <strong>No pending orders</strong>
+                    <span>New table orders will appear here.</span>
+                  </div>
+                )}
+              </CardContent>
+            </ScrollArea>
           </Card>
         </aside>
       </div>
