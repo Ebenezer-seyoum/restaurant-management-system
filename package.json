@@ -10,8 +10,7 @@
     "db:migrate": "tsx database/run-migration.ts",
     "db:migrate:all": "tsx database/migrate-all.ts",
     "db:seed-admin": "tsx database/seed-admin.ts",
-    "db:seed-sample-admin": "tsx database/seed-sample-admin.ts",
-    "db:setup": "npm run db:migrate:all && npm run db:seed-admin",
+    "db:setup": "npm run db:migrate:all",
     "start": "next start -H 0.0.0.0",
     "start:production": "npm run db:setup && next start -H 0.0.0.0"
   },
