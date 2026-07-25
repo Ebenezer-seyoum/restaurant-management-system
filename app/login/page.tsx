@@ -3,11 +3,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { brand as defaultBrand, loginPageSettings } from "@/lib/data";
+import { Footer, Header } from "../shared";
+import { brand as defaultBrand, footerSettings, loginPageSettings } from "@/lib/data";
 
 export default function LoginPage() {
   const [status, setStatus] = useState("");
   const [brand, setBrand] = useState(defaultBrand);
+  const [footer, setFooter] = useState(footerSettings);
   const [pageText, setPageText] = useState(loginPageSettings);
 
   useEffect(() => {
@@ -15,6 +17,7 @@ export default function LoginPage() {
       .then((response) => response.json())
       .then((data) => {
         setBrand({ ...defaultBrand, ...(data.brand || {}) });
+        setFooter({ ...footerSettings, ...(data.footer || {}) });
         setPageText({ ...loginPageSettings, ...(data.loginPage || {}) });
       })
       .catch(() => undefined);
@@ -38,15 +41,23 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = data.user.role === "admin" ? "/admin" : "/customer";
+      if (data.user.role !== "admin") {
+        setStatus("Customer accounts are no longer available. Please contact the restaurant.");
+        await fetch("/api/auth/logout", { method: "POST" });
+        return;
+      }
+
+      window.location.href = "/admin";
     } catch {
       setStatus("Unable to reach the login service. Please check the server connection and try again.");
     }
   }
 
   return (
-    <main className="loginPage">
-      <div className="loginCard" aria-labelledby="login-title">
+    <>
+      <Header brandData={brand} />
+      <main className="loginPage">
+        <div className="loginCard" aria-labelledby="login-title">
         <Link className="loginBrand" href="/" aria-label={`${brand.name} home`}>
           <span className="loginLogoShell">
             <img src={brand.logoImage || "/logo.png"} alt="" />
@@ -79,8 +90,10 @@ export default function LoginPage() {
         </form>
 
         <Link className="loginBackHome" href="/">← Back Home</Link>
-      </div>
-    </main>
+        </div>
+      </main>
+      <Footer brandData={brand} footerData={footer} />
+    </>
   );
 }
 

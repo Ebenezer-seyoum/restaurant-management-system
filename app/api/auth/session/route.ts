@@ -9,6 +9,10 @@ export async function GET(request) {
     return Response.json({ error: "Authentication required." }, { status: 401 });
   }
 
+  if (session.role !== "admin") {
+    return Response.json({ error: "Customer accounts are no longer available." }, { status: 403 });
+  }
+
   return Response.json({
     user: {
       id: session.id,

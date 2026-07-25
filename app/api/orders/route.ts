@@ -57,6 +57,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  if (!canManageOrders(request)) return forbidden();
+
   let body;
   try {
     body = await request.json();

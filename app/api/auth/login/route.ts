@@ -93,6 +93,11 @@ export async function POST(request) {
         return Response.json({ error: "Invalid login details." }, { status: 401 });
       }
 
+      if (user.role !== "admin") {
+        recordFailure(key);
+        return Response.json({ error: "Customer accounts are no longer available." }, { status: 403 });
+      }
+
       attemptStore().delete(key);
       return loginResponse(user);
     } catch (error) {
@@ -116,6 +121,11 @@ export async function POST(request) {
     if (!user || !verifyPassword(password, user.password_hash)) {
       recordFailure(key);
       return Response.json({ error: "Invalid login details." }, { status: 401 });
+    }
+
+    if (user.role !== "admin") {
+      recordFailure(key);
+      return Response.json({ error: "Customer accounts are no longer available." }, { status: 403 });
     }
 
     attemptStore().delete(key);

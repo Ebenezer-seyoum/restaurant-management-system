@@ -26,7 +26,6 @@ export function Header({
   rotateStories
 }) {
   const headerClassName = "siteHeader homeHeroHeader";
-  const [openPanel, setOpenPanel] = useState("");
   const [storyIndex, setStoryIndex] = useState(0);
   const houseStories = rotateStories || [
     "A warm house for burgers, pizza, cocktails, and relaxed evenings.",
@@ -74,27 +73,6 @@ export function Header({
             </Link>
           ))}
         </nav>
-        <div className="navActions">
-          <div className="headerDropdownWrap">
-            <button
-              className="button buttonLine compact bookHeaderButton"
-              onClick={() => setOpenPanel(openPanel === "book" ? "" : "book")}
-              type="button"
-            >
-              {brandData.headerBookingLabel || "Book a Table"}
-            </button>
-            {openPanel === "book" ? (
-              <div className="headerDropdownPanel bookingDropdown">
-                <p className="dropdownEyebrow">{brandData.bookingDropdownEyebrow || "Reserve by phone"}</p>
-                <strong>{brandData.phone}</strong>
-                <a className="button buttonGold compact" href={`tel:${brandData.phone.replace(/\s/g, "")}`}>
-                  {brandData.bookingDropdownAction || "Call Now"}
-                </a>
-                <p>{brandData.bookingDropdownText}</p>
-              </div>
-            ) : null}
-          </div>
-        </div>
         <div className="heroRotatingText" aria-live="polite">
           {heroKicker ? <small>{heroKicker}</small> : null}
           {heroTitle ? <strong>{heroTitle}</strong> : null}

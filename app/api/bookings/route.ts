@@ -39,58 +39,10 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const body = await request.json();
-  const guests = Number(body.guests);
-
-  if (!body.customer_name || !body.phone || !body.booking_date || !body.booking_time || !guests) {
-    return badRequest("Name, phone, date, time, and guests are required.");
-  }
-
-  if (body.email && !isEmail(body.email)) {
-    return badRequest("Please enter a valid email address.");
-  }
-
-  const booking = {
-    customer_name: body.customer_name,
-    phone: body.phone,
-    email: body.email || null,
-    booking_date: body.booking_date,
-    booking_time: body.booking_time,
-    guests,
-    notes: body.notes || null,
-    status: "pending"
-  };
-
-  if (process.env.DATABASE_URL) {
-    try {
-      const savedBooking = await createBookingInPostgres(booking);
-      return ok({ message: "Booking request sent. We will confirm soon.", booking: savedBooking }, 201);
-    } catch (error) {
-      console.error("Unable to create PostgreSQL booking:", error);
-      return Response.json({ error: "Unable to send the booking request." }, { status: 500 });
-    }
-  }
-
-  const supabase = getSupabaseServer();
-
-  if (!supabase) {
-    const state = await getLocalState();
-    const savedBooking = {
-      id: newId("booking"),
-      ...booking,
-      created_at: new Date().toISOString()
-    };
-    await saveLocalState({ ...state, bookings: [savedBooking, ...state.bookings] });
-    return ok({ message: "Booking request sent. We will confirm soon.", booking: savedBooking }, 201);
-  }
-
-  const { data, error } = await supabase.from("table_bookings").insert(booking).select().single();
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
-
-  return ok({ message: "Booking request sent. We will confirm soon.", booking: data }, 201);
+  return Response.json(
+    { error: "Online customer bookings are no longer available." },
+    { status: 410 }
+  );
 }
 
 export async function PATCH(request) {
