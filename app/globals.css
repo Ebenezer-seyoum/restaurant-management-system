@@ -10546,6 +10546,7 @@ html {
 }
 
 .waiterShadcnWorkspace .waiterCurrentOrder {
+  min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
@@ -10599,17 +10600,18 @@ html {
 .waiterCurrentContent {
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(104px, 1fr) auto auto;
   padding: 0 18px;
 }
 
 .waiterCartScroll {
   height: 100%;
-  min-height: 0;
+  min-height: 104px;
+  overflow: hidden;
 }
 
 .waiterShadcnWorkspace .waiterCartList {
-  min-height: 118px;
+  min-height: 0;
   display: grid;
   gap: 10px;
   padding: 10px 8px 10px 0;
@@ -10677,6 +10679,7 @@ html {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
   min-width: 0;
 }
@@ -11307,6 +11310,10 @@ html {
 
   .waiterCurrentContent {
     padding: 0 14px;
+  }
+
+  .waiterCartScroll {
+    min-height: 104px;
   }
 
   .waiterShadcnWorkspace .waiterCartLine {
